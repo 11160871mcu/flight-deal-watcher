@@ -1,36 +1,6 @@
 {
-  "generated_at": "2026-09-09T17:01:23.148719+00:00",
-  "currency": "TWD",
+  "generated_at": "2026-09-09T17:03:57.922295+00:00",
   "checked_this_run": 0,
   "total_combos_in_grid": 2226,
-  "recent_average_days": 60,
-  "dashboard_recent_days": 14,
-  "routes": [
-    {
-      "origin": "TPE",
-      "origin_cn": "台北桃園",
-      "origin_en": "Taiwan Taoyuan International Airport",
-      "origin_label": "台北桃園 Taiwan Taoyuan International Airport (TPE)",
-      "destination": "NRT",
-      "destination_cn": "東京成田",
-      "destination_en": "Narita International Airport",
-      "destination_label": "東京成田 Narita International Airport (NRT)",
-      "best_price": 523,
-      "best_price_raw": "NT$523",
-      "best_departure_date": "2026-10-15",
-      "best_return_date": "2026-10-20",
-      "best_stay_days": "5",
-      "airline": "航空公司資料未提供",
-      "dep_time": "",
-      "arr_time": "",
-      "return_dep_time": "",
-      "return_arr_time": "",
-      "link": "https://www.google.com/travel/flights?q=flights%20from%20TPE%20to%20NRT%20on%202026-10-15%20through%202026-10-20&hl=zh-TW",
-      "cheap_score": 0,
-      "diff_percent": 0,
-      "recent_average_price": 523,
-      "history_count": 1,
-      "last_checked_at": "2026-09-09T16:16:21.415710+00:00"
-    }
-  ]
+  "routes": []
 }
