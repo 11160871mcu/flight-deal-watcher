@@ -2,7 +2,7 @@
 """
 flight_monitor.py
 ------------------
-監測直飛機票價格，抓取航空公司、起降時間、直達網頁連結，計算 Cheap Score 並更新看板。
+監測直飛機票價格，完整抓取航空公司、起降時間、新台幣價格、計算 Cheap Score 並更新看板。
 """
 
 import os
@@ -20,6 +20,18 @@ DATA_DIR = os.path.join(ROOT, "docs", "data")
 LATEST_JSON = os.path.join(DATA_DIR, "latest.json")
 HISTORY_CSV = os.path.join(DATA_DIR, "history.csv")
 STATE_JSON = os.path.join(DATA_DIR, "state.json")
+
+# 機場代碼中文對照表
+AIRPORT_NAMES = {
+    "TPE": "台北桃園",
+    "NRT": "東京成田",
+    "KIX": "大阪關西",
+    "FUK": "福岡",
+    "CTS": "札幌新千歲",
+    "OKA": "沖繩那霸",
+    "ICN": "首爾仁川",
+    "PUS": "釜山金海",
+}
 
 
 def load_config():
@@ -120,44 +132,47 @@ def is_nonstop(flight):
 
 
 def generate_google_flights_url(origin, dest, dep_date, ret_date):
-    """產生可以直接連去 Google Flights 查看該航線的網址"""
-    base_url = "https://www.google.com/travel/flights"
-    # 簡易建構查詢參數
-    query = f"flights from {origin} to {dest} on {dep_date} through {ret_date}"
-    return f"https://www.google.com/search?q={urllib.parse.quote(query)}"
+    """產生精準直達 Google Flights 的查詢網址"""
+    return f"https://www.google.com/travel/flights?q=flights%20from%20{origin}%20to%20{dest}%20on%20{dep_date}%20through%20{ret_date}"
 
 
 def query_one_combo(combo, cfg):
     from fast_flights import get_flights
 
-    result = get_flights(
-        flight_data=[
-            {
-                "date": combo["departure_date"],
-                "from": combo["origin"],
-                "to": combo["destination"],
-            },
-            {
-                "date": combo["return_date"],
-                "from": combo["destination"],
-                "to": combo["origin"],
-            },
-        ],
-        trip="round-trip",
-        seat=cfg.get("seat", "economy"),
-        passengers={"adults": cfg.get("adults", 1)},
-        fetch_mode="fallback",
-    )
+    try:
+        result = get_flights(
+            flight_data=[
+                {
+                    "date": combo["departure_date"],
+                    "from": combo["origin"],
+                    "to": combo["destination"],
+                },
+                {
+                    "date": combo["return_date"],
+                    "from": combo["destination"],
+                    "to": combo["origin"],
+                },
+            ],
+            trip="round-trip",
+            seat=cfg.get("seat", "economy"),
+            passengers={"adults": cfg.get("adults", 1)},
+            currency="TWD",  # 強制指定新台幣
+            fetch_mode="fallback",
+        )
+    except Exception as e:
+        print(f"查詢失敗 {combo}: {e}")
+        return None, None, "直飛航空", "", "", "", None, False
 
     direct_only = cfg.get("direct_flights_only", True)
     best_price = None
     best_raw = None
-    best_airline = "多家航空公司"
+    best_airline = "直飛航空"
     best_dep_time = ""
     best_arr_time = ""
     any_flight_seen = False
 
-    for flight in result.flights:
+    flights_list = getattr(result, "flights", [])
+    for flight in flights_list:
         any_flight_seen = True
         if direct_only and not is_nonstop(flight):
             continue
@@ -168,10 +183,18 @@ def query_one_combo(combo, cfg):
             
         if best_price is None or price_num < best_price:
             best_price = price_num
-            best_raw = price_raw
-            best_airline = getattr(flight, "airline", "直飛航班")
-            best_dep_time = getattr(flight, "departure_time", "")
-            best_arr_time = getattr(flight, "arrival_time", "")
+            # 確保價格文字包含 NT$
+            best_raw = price_raw if "NT" in str(price_raw) else f"NT${price_raw}"
+            
+            # 抓取航空公司與時間屬性（相容多種版本欄位）
+            best_airline = getattr(flight, "airline", None) or getattr(flight, "airlines", "直飛航空")
+            if isinstance(best_airline, list):
+                best_airline = ", ".join(best_airline)
+                
+            dep_t = getattr(flight, "departure_time", None) or getattr(flight, "dep_time", "")
+            arr_t = getattr(flight, "arrival_time", None) or getattr(flight, "arr_time", "")
+            best_dep_time = str(dep_t) if dep_t else ""
+            best_arr_time = str(arr_t) if arr_t else ""
 
     google_price_level = getattr(result, "current_price", None)
     filtered_out_by_direct = any_flight_seen and best_price is None and direct_only
@@ -180,7 +203,7 @@ def query_one_combo(combo, cfg):
         combo["origin"], combo["destination"], combo["departure_date"], combo["return_date"]
     )
 
-    return best_price, best_raw, best_airline, best_dep_time, best_arr_time, flight_link, google_price_level, filtered_out_by_direct
+    return best_price, best_raw, str(best_airline), best_dep_time, best_arr_time, flight_link, google_price_level, filtered_out_by_direct
 
 
 def append_history(rows):
@@ -238,15 +261,19 @@ def summarize_history():
             key = (row["origin"], row["destination"])
             current = best_by_route.get(key)
             if current is None or price < current["best_price"]:
+                orig = row["origin"]
+                dest = row["destination"]
                 best_by_route[key] = {
-                    "origin": row["origin"],
-                    "destination": row["destination"],
+                    "origin": orig,
+                    "origin_cn": AIRPORT_NAMES.get(orig, orig),
+                    "destination": dest,
+                    "destination_cn": AIRPORT_NAMES.get(dest, dest),
                     "best_price": price,
-                    "best_price_raw": row.get("price_raw", ""),
+                    "best_price_raw": row.get("price_raw", f"NT${price:,.0f}"),
                     "best_departure_date": row["departure_date"],
                     "best_return_date": row["return_date"],
                     "best_stay_days": row.get("stay_days", ""),
-                    "airline": row.get("airline", "直飛航班"),
+                    "airline": row.get("airline", "直飛航空"),
                     "dep_time": row.get("dep_time", ""),
                     "arr_time": row.get("arr_time", ""),
                     "link": row.get("link", "#"),
@@ -285,7 +312,8 @@ def main():
         try:
             res = query_one_combo(combo, cfg)
             price, price_raw, airline, dep_time, arr_time, link, google_level, filtered = res
-        except Exception:
+        except Exception as e:
+            print(f"Error processing combo {combo}: {e}")
             continue
 
         if price is None:

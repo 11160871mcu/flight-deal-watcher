@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>直飛機票特價看板</title>
+<title>直飛機票特價看板 (TWD)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -24,10 +24,10 @@
     font-family: 'Inter', sans-serif;
     line-height: 1.5;
   }
-  .wrap { max-width: 900px; margin: 0 auto; padding: 48px 24px 96px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 48px 24px 96px; }
   header h1 {
     font-family: 'Space Mono', monospace;
-    font-size: clamp(28px, 5vw, 38px);
+    font-size: clamp(26px, 5vw, 36px);
     margin: 0 0 6px;
   }
   header p.sub { color: var(--muted); margin: 0 0 40px; font-size: 15px; }
@@ -39,10 +39,10 @@
     margin-bottom: 40px;
   }
   .hero .label { color: var(--teal); font-size: 13px; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; }
-  .hero .route { font-family: 'Space Mono', monospace; font-size: clamp(28px, 5vw, 42px); color: var(--gold); }
+  .hero .route { font-family: 'Space Mono', monospace; font-size: clamp(22px, 4vw, 34px); color: var(--gold); }
   .hero .price { font-family: 'Space Mono', monospace; font-size: clamp(20px, 3vw, 26px); margin-top: 6px; }
   .hero .dates { color: var(--muted); font-size: 14px; margin-top: 8px; }
-  .hero .meta { margin-top: 12px; display: flex; gap: 12px; font-size: 13px; flex-wrap: wrap; }
+  .hero .meta { margin-top: 12px; display: flex; gap: 10px; font-size: 13px; flex-wrap: wrap; align-items: center; }
   .badge { background: rgba(79, 209, 174, 0.15); color: var(--teal); padding: 3px 10px; border-radius: 4px; font-weight: 600; }
   
   table { width: 100%; border-collapse: collapse; font-family: 'Space Mono', monospace; font-size: 14px; }
@@ -53,7 +53,7 @@
   .route-name { color: var(--text); font-size: 16px; font-weight: bold; }
   .price-tag { color: var(--gold); font-weight: 700; font-size: 16px; }
   .sub-info { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--muted); margin-top: 4px; }
-  .btn-link { display: inline-block; margin-top: 6px; background: var(--teal); color: var(--bg); padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; text-decoration: none; }
+  .btn-link { display: inline-block; background: var(--teal); color: var(--bg); padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; text-decoration: none; text-align: center; }
   .btn-link:hover { opacity: 0.9; }
   .empty { color: var(--muted); padding: 40px 0; font-family: 'Space Mono', monospace; }
   footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
@@ -63,8 +63,8 @@
 <body>
   <div class="wrap">
     <header>
-      <h1>✈️ 直飛機票特價看板</h1>
-      <p class="sub">全面排除轉機，自動計算歷史相對特價與推薦航班。</p>
+      <h1>✈️ 直飛機票特價看板 (TWD)</h1>
+      <p class="sub">新台幣計價、嚴格直飛過濾、完整顯示航空公司與起降時間。</p>
     </header>
 
     <div id="hero" class="hero" style="display:none;">
@@ -80,8 +80,8 @@
         <tr>
           <th style="width: 40px;">名次</th>
           <th>航線與航空公司</th>
-          <th>價格 / 評分</th>
-          <th>去回程日期與天數</th>
+          <th>新台幣價格 / 評分</th>
+          <th>日期與起降時間</th>
           <th>操作</th>
         </tr>
       </thead>
@@ -116,15 +116,16 @@ function render(data) {
 
   const best = routes[0];
   document.getElementById('hero').style.display = 'block';
-  document.getElementById('hero-route').textContent = `${best.origin} → ${best.destination}`;
-  document.getElementById('hero-price').textContent = best.best_price_raw || `NT$${best.best_price.toLocaleString()} 來回`;
-  document.getElementById('hero-dates').textContent = `去程 ${best.best_departure_date} ～ 回程 ${best.best_return_date} (${best.best_stay_days}天)`;
+  document.getElementById('hero-route').textContent = `${best.origin_cn} (${best.origin}) → ${best.destination_cn} (${best.destination})`;
+  document.getElementById('hero-price').textContent = best.best_price_raw || `NT$${best.best_price.toLocaleString()}`;
+  document.getElementById('hero-dates').textContent = `去程 ${best.best_departure_date} ～ 回程 ${best.best_return_date}・停留 ${best.best_stay_days}天`;
   
   document.getElementById('hero-meta').innerHTML = `
-    <span class="badge">✈️ 直飛・${best.airline || '一般航空'}</span>
-    <span class="badge">📉 比平均低 ${best.diff_percent}%</span>
-    <span class="badge" style="background:rgba(242,193,78,0.15); color:var(--gold);">🔥 Cheap Score ${best.cheap_score}</span>
-    <a href="${best.link}" target="_blank" class="btn-link" style="margin-left:auto;">🔗 前往 Google Flights 查看</a>
+    <span class="badge">✈️ ${best.airline || '直飛航空'}</span>
+    <span class="badge">🕒 ${best.dep_time ? '起飛: ' + best.dep_time : '直飛時段'}</span>
+    <span class="badge">📉 便宜 ${best.diff_percent}%</span>
+    <span class="badge" style="background:rgba(242,193,78,0.15); color:var(--gold);">🔥 Score ${best.cheap_score}</span>
+    <a href="${best.link}" target="_blank" class="btn-link" style="margin-left:auto;">🔗 Google Flights</a>
   `;
 
   const medals = ['🥇', '🥈', '🥉'];
@@ -137,16 +138,16 @@ function render(data) {
     tr.innerHTML = `
       <td class="rank-badge">${rankDisplay}</td>
       <td>
-        <div class="route-name">${r.origin} → ${r.destination}</div>
-        <div class="sub-info">✈️ ${r.airline || '直飛航班'}</div>
+        <div class="route-name">${r.origin_cn} (${r.origin}) → ${r.destination_cn} (${r.destination})</div>
+        <div class="sub-info">✈️ ${r.airline || '直飛航空'}</div>
       </td>
       <td>
         <div class="price-tag">${r.best_price_raw || 'NT$' + r.best_price.toLocaleString()}</div>
-        <div class="sub-info">📉 比平均低 ${r.diff_percent}% | Score ${r.cheap_score}</div>
+        <div class="sub-info">📉 便宜 ${r.diff_percent}% | Score ${r.cheap_score}</div>
       </td>
       <td>
         <div>${r.best_departure_date} ~ ${r.best_return_date}</div>
-        <div class="sub-info">停留 ${r.best_stay_days} 天</div>
+        <div class="sub-info">起飛: ${r.dep_time || '依查詢'} (停留 ${r.best_stay_days} 天)</div>
       </td>
       <td>
         <a href="${r.link}" target="_blank" class="btn-link">查看航班</a>
