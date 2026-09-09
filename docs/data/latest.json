@@ -1,17 +1,19 @@
 {
-  "generated_at": "2026-09-09T16:24:31.582928+00:00",
+  "generated_at": "2026-09-09T16:27:38.443023+00:00",
   "checked_this_run": 0,
   "total_combos_in_grid": 2226,
   "routes": [
     {
       "origin": "TPE",
+      "origin_cn": "台北桃園",
       "destination": "NRT",
+      "destination_cn": "東京成田",
       "best_price": 523.0,
       "best_price_raw": "$523",
       "best_departure_date": "2026-10-15",
       "best_return_date": "2026-10-20",
       "best_stay_days": "5",
-      "airline": "直飛航班",
+      "airline": "直飛航空",
       "dep_time": "",
       "arr_time": "",
       "link": "#",
