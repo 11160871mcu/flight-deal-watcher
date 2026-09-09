@@ -1,4 +1,4 @@
-fast-flights>=3.0
+fast-flights==2.2
 PyYAML>=6.0
 requests>=2.31.0
 playwright
