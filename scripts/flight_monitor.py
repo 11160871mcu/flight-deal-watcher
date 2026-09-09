@@ -2,17 +2,18 @@
 """
 flight_monitor.py
 ------------------
-監測直飛機票價格，完整抓取航空公司、起降時間、新台幣價格、計算 Cheap Score 並更新看板。
+監測直飛機票價格，完整抓取航空公司、起降時間、新台幣價格、計算 Cheap Score
+與「比近期平均低 X%」，並更新看板。
 """
 
-import os
 import csv
 import json
+import os
+import re
 import urllib.parse
 from datetime import date, datetime, timedelta, timezone
 
 import yaml
-import requests
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(ROOT, "config.yaml")
@@ -21,22 +22,35 @@ LATEST_JSON = os.path.join(DATA_DIR, "latest.json")
 HISTORY_CSV = os.path.join(DATA_DIR, "history.csv")
 STATE_JSON = os.path.join(DATA_DIR, "state.json")
 
-# 機場代碼中文對照表
+# 中英文機場名稱
 AIRPORT_NAMES = {
-    "TPE": "台北桃園",
-    "NRT": "東京成田",
-    "KIX": "大阪關西",
-    "FUK": "福岡",
-    "CTS": "札幌新千歲",
-    "OKA": "沖繩那霸",
-    "ICN": "首爾仁川",
-    "PUS": "釜山金海",
+    "TPE": {"cn": "台北桃園", "en": "Taiwan Taoyuan International Airport"},
+    "NRT": {"cn": "東京成田", "en": "Narita International Airport"},
+    "KIX": {"cn": "大阪關西", "en": "Kansai International Airport"},
+    "FUK": {"cn": "福岡", "en": "Fukuoka Airport"},
+    "CTS": {"cn": "札幌新千歲", "en": "New Chitose Airport"},
+    "OKA": {"cn": "沖繩那霸", "en": "Naha Airport"},
+    "ICN": {"cn": "首爾仁川", "en": "Incheon International Airport"},
+    "PUS": {"cn": "釜山金海", "en": "Gimhae International Airport"},
 }
 
 
 def load_config():
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        return yaml.safe_load(f) or {}
+
+
+def airport_info(iata):
+    info = AIRPORT_NAMES.get(iata, {"cn": iata, "en": ""})
+    return {
+        "cn": info.get("cn", iata),
+        "en": info.get("en", ""),
+    }
+
+
+def airport_label(iata):
+    info = airport_info(iata)
+    return f'{info["cn"]} {info["en"]} ({iata})' if info["en"] else f'{info["cn"]} ({iata})'
 
 
 def daterange_step(start_str, end_str, step_days):
@@ -96,7 +110,7 @@ def load_state():
 def save_state(state):
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(STATE_JSON, "w", encoding="utf-8") as f:
-        json.dump(state, f, ensure_ascii=False)
+        json.dump(state, f, ensure_ascii=False, indent=2)
 
 
 def pick_batch(combos, state, batch_size):
@@ -104,21 +118,23 @@ def pick_batch(combos, state, batch_size):
     if n == 0:
         return []
     start = state.get("next_index", 0) % n
-    batch = []
-    for i in range(batch_size):
-        batch.append(combos[(start + i) % n])
+    batch = [combos[(start + i) % n] for i in range(batch_size)]
     state["next_index"] = (start + batch_size) % n
     return batch
 
 
 def parse_price(raw):
     if raw is None:
-        return None, None
-    digits = "".join(ch for ch in str(raw) if ch.isdigit() or ch == ".")
+        return None
+    text = str(raw).strip()
+    # 只取價格數字，顯示時統一由程式格式化成 NT$
+    cleaned = re.sub(r"[^0-9.]", "", text.replace(",", ""))
+    if not cleaned:
+        return None
     try:
-        return float(digits), str(raw)
+        return float(cleaned)
     except ValueError:
-        return None, str(raw)
+        return None
 
 
 def is_nonstop(flight):
@@ -131,9 +147,82 @@ def is_nonstop(flight):
     return s in ("0", "nonstop", "non-stop", "direct", "0 stops", "0 stop")
 
 
+def first_attr(obj, names, default=None):
+    for name in names:
+        try:
+            value = getattr(obj, name, None)
+        except Exception:
+            value = None
+        if value not in (None, "", []):
+            return value
+    return default
+
+
+def stringify(value):
+    if value is None:
+        return ""
+    if isinstance(value, (list, tuple)):
+        return " / ".join(str(v) for v in value if v not in (None, ""))
+    return str(value)
+
+
+def extract_airline(flight):
+    value = first_attr(flight, ["airline", "airlines", "name"], "")
+    text = stringify(value).strip()
+    return text or "航空公司資料未提供"
+
+
+def extract_time(value):
+    """從 07:30、TPE 07:30、2026-10-15 07:30 等字串取出 HH:MM。"""
+    text = stringify(value)
+    match = re.search(r"\b([01]?\d|2[0-3]):([0-5]\d)\b", text)
+    return match.group(0) if match else text.strip()
+
+
+def extract_leg_times(flight):
+    dep_raw = first_attr(
+        flight,
+        ["departure_time", "dep_time", "departure", "depart"],
+        "",
+    )
+    arr_raw = first_attr(
+        flight,
+        ["arrival_time", "arr_time", "arrival", "arrive"],
+        "",
+    )
+
+    # 支援新舊 fast-flights 欄位，以及某些版本直接給 list/tuple 的情況。
+    dep_text = stringify(dep_raw)
+    arr_text = stringify(arr_raw)
+    dep_time = extract_time(dep_text)
+    arr_time = extract_time(arr_text)
+
+    return dep_time, arr_time, dep_text, arr_text
+
+
+def extract_roundtrip_times(flight):
+    # 如果套件版本有明確提供回程欄位就一起抓；沒有則留空，不亂猜。
+    ret_dep = first_attr(flight, ["return_departure_time", "return_dep_time", "inbound_departure"], "")
+    ret_arr = first_attr(flight, ["return_arrival_time", "return_arr_time", "inbound_arrival"], "")
+    return extract_time(ret_dep), extract_time(ret_arr)
+
+
 def generate_google_flights_url(origin, dest, dep_date, ret_date):
-    """產生精準直達 Google Flights 的查詢網址"""
-    return f"https://www.google.com/travel/flights?q=flights%20from%20{origin}%20to%20{dest}%20on%20{dep_date}%20through%20{ret_date}"
+    """產生包含日期的 Google Flights 查詢連結；若套件沒有 booking URL 就作為可靠 fallback。"""
+    q = urllib.parse.quote(
+        f"flights from {origin} to {dest} on {dep_date} through {ret_date}"
+    )
+    return f"https://www.google.com/travel/flights?q={q}&hl=zh-TW"
+
+
+def best_available_link(result, flight, origin, dest, dep_date, ret_date):
+    # 新版 fast-flights / 整合器可能直接提供 booking URL；有就優先使用。
+    for obj in (flight, result):
+        value = first_attr(obj, ["booking_url", "book_url", "url"], "")
+        text = stringify(value).strip()
+        if text.startswith("http"):
+            return text
+    return generate_google_flights_url(origin, dest, dep_date, ret_date)
 
 
 def query_one_combo(combo, cfg):
@@ -156,54 +245,76 @@ def query_one_combo(combo, cfg):
             trip="round-trip",
             seat=cfg.get("seat", "economy"),
             passengers={"adults": cfg.get("adults", 1)},
-            currency="TWD",  # 強制指定新台幣
+            currency="TWD",
+            language="zh-TW",
             fetch_mode="fallback",
         )
+    except TypeError:
+        # 舊版不接受 language 時，退回原有 API。
+        try:
+            result = get_flights(
+                flight_data=[
+                    {"date": combo["departure_date"], "from": combo["origin"], "to": combo["destination"]},
+                    {"date": combo["return_date"], "from": combo["destination"], "to": combo["origin"]},
+                ],
+                trip="round-trip",
+                seat=cfg.get("seat", "economy"),
+                passengers={"adults": cfg.get("adults", 1)},
+                currency="TWD",
+                fetch_mode="fallback",
+            )
+        except Exception as e:
+            print(f"查詢失敗 {combo}: {e}")
+            return None
     except Exception as e:
         print(f"查詢失敗 {combo}: {e}")
-        return None, None, "直飛航空", "", "", "", None, False
+        return None
 
     direct_only = cfg.get("direct_flights_only", True)
-    best_price = None
-    best_raw = None
-    best_airline = "直飛航空"
-    best_dep_time = ""
-    best_arr_time = ""
-    any_flight_seen = False
+    best = None
 
-    flights_list = getattr(result, "flights", [])
+    flights_list = getattr(result, "flights", []) or []
     for flight in flights_list:
-        any_flight_seen = True
         if direct_only and not is_nonstop(flight):
             continue
-        
-        price_num, price_raw = parse_price(getattr(flight, "price", None))
+
+        price_num = parse_price(getattr(flight, "price", None))
         if price_num is None:
             continue
-            
-        if best_price is None or price_num < best_price:
-            best_price = price_num
-            # 確保價格文字包含 NT$
-            best_raw = price_raw if "NT" in str(price_raw) else f"NT${price_raw}"
-            
-            # 抓取航空公司與時間屬性（相容多種版本欄位）
-            best_airline = getattr(flight, "airline", None) or getattr(flight, "airlines", "直飛航空")
-            if isinstance(best_airline, list):
-                best_airline = ", ".join(best_airline)
-                
-            dep_t = getattr(flight, "departure_time", None) or getattr(flight, "dep_time", "")
-            arr_t = getattr(flight, "arrival_time", None) or getattr(flight, "arr_time", "")
-            best_dep_time = str(dep_t) if dep_t else ""
-            best_arr_time = str(arr_t) if arr_t else ""
 
-    google_price_level = getattr(result, "current_price", None)
-    filtered_out_by_direct = any_flight_seen and best_price is None and direct_only
-    
-    flight_link = generate_google_flights_url(
-        combo["origin"], combo["destination"], combo["departure_date"], combo["return_date"]
-    )
+        dep_time, arr_time, dep_raw, arr_raw = extract_leg_times(flight)
+        ret_dep_time, ret_arr_time = extract_roundtrip_times(flight)
+        airline = extract_airline(flight)
+        link = best_available_link(
+            result,
+            flight,
+            combo["origin"],
+            combo["destination"],
+            combo["departure_date"],
+            combo["return_date"],
+        )
 
-    return best_price, best_raw, str(best_airline), best_dep_time, best_arr_time, flight_link, google_price_level, filtered_out_by_direct
+        candidate = {
+            "price": price_num,
+            "price_raw": f"NT${price_num:,.0f}",
+            "airline": airline,
+            "dep_time": dep_time,
+            "arr_time": arr_time,
+            "dep_raw": dep_raw,
+            "arr_raw": arr_raw,
+            "return_dep_time": ret_dep_time,
+            "return_arr_time": ret_arr_time,
+            "link": link,
+        }
+        if best is None or candidate["price"] < best["price"]:
+            best = candidate
+
+    if best is None:
+        return None
+
+    # result.current_price 是價格趨勢文字，不是票價，不拿來當票價。
+    best["google_price_level"] = stringify(getattr(result, "current_price", ""))
+    return best
 
 
 def append_history(rows):
@@ -214,83 +325,148 @@ def append_history(rows):
             f,
             fieldnames=[
                 "checked_at", "origin", "destination", "departure_date", "return_date",
-                "stay_days", "price", "price_raw", "airline", "dep_time", "arr_time", "link"
+                "stay_days", "price", "price_raw", "airline", "dep_time", "arr_time",
+                "return_dep_time", "return_arr_time", "link",
             ],
+            extrasaction="ignore",
         )
         if is_new:
             writer.writeheader()
         writer.writerows(rows)
 
 
-def load_history_prices_by_route():
-    prices_by_route = {}
+def read_history_rows():
     if not os.path.exists(HISTORY_CSV):
-        return prices_by_route
+        return []
     with open(HISTORY_CSV, newline="", encoding="utf-8") as f:
+        rows = []
         for row in csv.DictReader(f):
             try:
-                price = float(row["price"])
-            except (ValueError, KeyError, TypeError):
+                row["price"] = float(row["price"])
+            except (ValueError, TypeError, KeyError):
                 continue
-            key = (row["origin"], row["destination"])
-            prices_by_route.setdefault(key, []).append(price)
-    return prices_by_route
+            rows.append(row)
+        return rows
+
+
+def load_history_prices_by_combo():
+    prices = {}
+    for row in read_history_rows():
+        key = (
+            row.get("origin", ""),
+            row.get("destination", ""),
+            row.get("departure_date", ""),
+            row.get("return_date", ""),
+        )
+        prices.setdefault(key, []).append(row["price"])
+    return prices
+
+
+def parse_checked_at(value):
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except Exception:
+        return None
 
 
 def cheap_score(price, past_prices):
     if not past_prices:
-        return None
-    n = len(past_prices)
+        return 50
     more_expensive = sum(1 for p in past_prices if p > price)
-    return round(100 * more_expensive / n)
+    return round(100 * more_expensive / len(past_prices))
 
 
-def summarize_history():
-    if not os.path.exists(HISTORY_CSV):
+def summarize_history(cfg):
+    rows = read_history_rows()
+    if not rows:
         return []
 
-    all_prices = load_history_prices_by_route()
-    best_by_route = {}
-    
-    with open(HISTORY_CSV, newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            try:
-                price = float(row["price"])
-            except (ValueError, KeyError):
-                continue
-            key = (row["origin"], row["destination"])
-            current = best_by_route.get(key)
-            if current is None or price < current["best_price"]:
-                orig = row["origin"]
-                dest = row["destination"]
-                best_by_route[key] = {
-                    "origin": orig,
-                    "origin_cn": AIRPORT_NAMES.get(orig, orig),
-                    "destination": dest,
-                    "destination_cn": AIRPORT_NAMES.get(dest, dest),
-                    "best_price": price,
-                    "best_price_raw": row.get("price_raw", f"NT${price:,.0f}"),
-                    "best_departure_date": row["departure_date"],
-                    "best_return_date": row["return_date"],
-                    "best_stay_days": row.get("stay_days", ""),
-                    "airline": row.get("airline", "直飛航空"),
-                    "dep_time": row.get("dep_time", ""),
-                    "arr_time": row.get("arr_time", ""),
-                    "link": row.get("link", "#"),
-                }
+    recent_days = int(cfg.get("recent_average_days", 60))
+    dashboard_days = int(cfg.get("dashboard_recent_days", 14))
+    now = datetime.now(timezone.utc)
+    recent_cutoff = now - timedelta(days=recent_days)
+    dashboard_cutoff = now - timedelta(days=dashboard_days)
 
-    routes = []
-    for key, data in best_by_route.items():
-        past = all_prices.get(key, [])
-        score = cheap_score(data["best_price"], past)
-        avg_price = sum(past) / len(past) if past else data["best_price"]
-        diff_percent = round(100 * (avg_price - data["best_price"]) / avg_price) if avg_price > 0 else 0
+    # 以「相同出發/回程日期組合」做歷史比較，避免不同日期的票價混在一起。
+    by_combo = {}
+    for row in rows:
+        key = (
+            row.get("origin", ""),
+            row.get("destination", ""),
+            row.get("departure_date", ""),
+            row.get("return_date", ""),
+        )
+        checked = parse_checked_at(row.get("checked_at", ""))
+        row["_checked"] = checked
+        by_combo.setdefault(key, []).append(row)
 
-        data["cheap_score"] = score if score is not None else 50
-        data["diff_percent"] = diff_percent
-        routes.append(data)
+    # 最近 N 天有重新查過的組合，才進入首頁排行榜。
+    current_combos = []
+    for key, combo_rows in by_combo.items():
+        recent_rows = [r for r in combo_rows if r.get("_checked") and r["_checked"] >= dashboard_cutoff]
+        if not recent_rows:
+            continue
+        best_row = min(recent_rows, key=lambda r: (r["price"], r["_checked"]))
 
-    routes.sort(key=lambda r: r["cheap_score"], reverse=True)
+        comparison_rows = [
+            r for r in combo_rows
+            if r.get("_checked") and r["_checked"] >= recent_cutoff
+        ]
+        comparison_prices = [r["price"] for r in comparison_rows]
+        # 沒有足夠歷史時，以這個組合目前已查到的全部價格作備援。
+        if not comparison_prices:
+            comparison_prices = [r["price"] for r in combo_rows]
+
+        avg_price = sum(comparison_prices) / len(comparison_prices)
+        diff_percent = round(100 * (avg_price - best_row["price"]) / avg_price) if avg_price > 0 else 0
+        score = cheap_score(best_row["price"], comparison_prices)
+
+        orig = best_row.get("origin", "")
+        dest = best_row.get("destination", "")
+        orig_info = airport_info(orig)
+        dest_info = airport_info(dest)
+
+        current_combos.append({
+            "origin": orig,
+            "origin_cn": orig_info["cn"],
+            "origin_en": orig_info["en"],
+            "origin_label": airport_label(orig),
+            "destination": dest,
+            "destination_cn": dest_info["cn"],
+            "destination_en": dest_info["en"],
+            "destination_label": airport_label(dest),
+            "best_price": round(best_row["price"]),
+            "best_price_raw": f'NT${best_row["price"]:,.0f}',
+            "best_departure_date": best_row.get("departure_date", ""),
+            "best_return_date": best_row.get("return_date", ""),
+            "best_stay_days": best_row.get("stay_days", ""),
+            "airline": best_row.get("airline") or "航空公司資料未提供",
+            "dep_time": best_row.get("dep_time", ""),
+            "arr_time": best_row.get("arr_time", ""),
+            "return_dep_time": best_row.get("return_dep_time", ""),
+            "return_arr_time": best_row.get("return_arr_time", ""),
+            "link": best_row.get("link") or generate_google_flights_url(
+                orig, dest, best_row.get("departure_date", ""), best_row.get("return_date", "")
+            ),
+            "cheap_score": score,
+            "diff_percent": diff_percent,
+            "recent_average_price": round(avg_price),
+            "history_count": len(comparison_prices),
+            "last_checked_at": best_row.get("checked_at", ""),
+        })
+
+    # 每個目的地只留目前查到最有競爭力的一組日期；如此首頁會像真正的目的地排行榜。
+    best_destination = {}
+    for item in current_combos:
+        dest = item["destination"]
+        old = best_destination.get(dest)
+        if old is None or (item["cheap_score"], -item["diff_percent"], -item["best_price"]) > (
+            old["cheap_score"], -old["diff_percent"], -old["best_price"]
+        ):
+            best_destination[dest] = item
+
+    routes = list(best_destination.values())
+    routes.sort(key=lambda r: (-r["cheap_score"], -r["diff_percent"], r["best_price"]))
     return routes
 
 
@@ -301,26 +477,19 @@ def main():
     combos = build_combo_grid(cfg)
     state = load_state()
     batch = pick_batch(combos, state, cfg.get("max_checks_per_run", 8))
-
-    prices_by_route = load_history_prices_by_route()
-    now_dt = datetime.now(timezone.utc)
-    now = now_dt.isoformat()
+    now = datetime.now(timezone.utc).isoformat()
 
     history_rows = []
-
     for combo in batch:
         try:
-            res = query_one_combo(combo, cfg)
-            price, price_raw, airline, dep_time, arr_time, link, google_level, filtered = res
+            result = query_one_combo(combo, cfg)
         except Exception as e:
             print(f"Error processing combo {combo}: {e}")
             continue
 
-        if price is None:
+        if not result:
             continue
 
-        route_key = (combo["origin"], combo["destination"])
-        
         history_rows.append(
             {
                 "checked_at": now,
@@ -329,25 +498,29 @@ def main():
                 "departure_date": combo["departure_date"],
                 "return_date": combo["return_date"],
                 "stay_days": combo["stay_days"],
-                "price": price,
-                "price_raw": price_raw,
-                "airline": airline,
-                "dep_time": dep_time,
-                "arr_time": arr_time,
-                "link": link,
+                "price": result["price"],
+                "price_raw": result["price_raw"],
+                "airline": result["airline"],
+                "dep_time": result["dep_time"],
+                "arr_time": result["arr_time"],
+                "return_dep_time": result["return_dep_time"],
+                "return_arr_time": result["return_arr_time"],
+                "link": result["link"],
             }
         )
-        prices_by_route.setdefault(route_key, []).append(price)
 
     save_state(state)
     if history_rows:
         append_history(history_rows)
 
-    routes_summary = summarize_history()
+    routes_summary = summarize_history(cfg)
     latest_payload = {
         "generated_at": now,
+        "currency": "TWD",
         "checked_this_run": len(history_rows),
         "total_combos_in_grid": len(combos),
+        "recent_average_days": int(cfg.get("recent_average_days", 60)),
+        "dashboard_recent_days": int(cfg.get("dashboard_recent_days", 14)),
         "routes": routes_summary,
     }
     with open(LATEST_JSON, "w", encoding="utf-8") as f:
