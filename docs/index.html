@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>機票特價看板</title>
+<title>直飛機票特價看板</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -16,9 +16,7 @@
     --gold: #F2C14E;
     --teal: #4FD1AE;
   }
-
   * { box-sizing: border-box; }
-
   body {
     margin: 0;
     background: var(--bg);
@@ -26,163 +24,65 @@
     font-family: 'Inter', sans-serif;
     line-height: 1.5;
   }
-
-  .wrap {
-    max-width: 880px;
-    margin: 0 auto;
-    padding: 48px 24px 96px;
-  }
-
+  .wrap { max-width: 900px; margin: 0 auto; padding: 48px 24px 96px; }
   header h1 {
     font-family: 'Space Mono', monospace;
-    font-size: clamp(28px, 5vw, 40px);
-    letter-spacing: -0.5px;
+    font-size: clamp(28px, 5vw, 38px);
     margin: 0 0 6px;
   }
-
-  header p.sub {
-    color: var(--muted);
-    margin: 0 0 40px;
-    font-size: 15px;
-  }
-
+  header p.sub { color: var(--muted); margin: 0 0 40px; font-size: 15px; }
   .hero {
     background: linear-gradient(180deg, #1B2540, #141D33);
     border: 1px solid var(--panel-line);
-    border-radius: 4px;
-    padding: 28px 28px 24px;
+    border-radius: 8px;
+    padding: 28px;
     margin-bottom: 40px;
   }
-
-  .hero .label {
-    color: var(--muted);
-    font-size: 13px;
-    margin-bottom: 10px;
-  }
-
-  .hero .route {
-    font-family: 'Space Mono', monospace;
-    font-size: clamp(30px, 6vw, 46px);
-    color: var(--gold);
-    letter-spacing: 1px;
-  }
-
-  .hero .price {
-    font-family: 'Space Mono', monospace;
-    font-size: clamp(22px, 4vw, 28px);
-    margin-top: 6px;
-  }
-
-  .hero .dates {
-    color: var(--muted);
-    font-size: 14px;
-    margin-top: 8px;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: 'Space Mono', monospace;
-    font-size: 14px;
-  }
-
-  thead th {
-    text-align: left;
-    color: var(--muted);
-    font-family: 'Inter', sans-serif;
-    font-weight: 500;
-    font-size: 13px;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--panel-line);
-  }
-
-  tbody td {
-    padding: 14px 12px;
-    border-bottom: 1px solid var(--panel-line);
-    vertical-align: middle;
-  }
-
-  tbody tr:hover {
-    background: var(--panel);
-  }
-
-  td.rank {
-    color: var(--muted);
-    width: 34px;
-  }
-
-  td.route {
-    color: var(--text);
-    letter-spacing: 0.5px;
-  }
-
-  td.price {
-    color: var(--gold);
-    font-weight: 700;
-  }
-
-  td.dates {
-    color: var(--muted);
-    font-family: 'Inter', sans-serif;
-    font-size: 13px;
-  }
-
-  .cheap-tag {
-    display: inline-block;
-    margin-left: 8px;
-    padding: 2px 8px;
-    border-radius: 3px;
-    background: rgba(79, 209, 174, 0.15);
-    color: var(--teal);
-    font-family: 'Inter', sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-  }
-
-  footer {
-    margin-top: 40px;
-    color: var(--muted);
-    font-size: 13px;
-  }
-
-  .empty {
-    color: var(--muted);
-    padding: 40px 0;
-  }
-
-  .coverage {
-    color: var(--muted);
-    font-size: 13px;
-    margin-bottom: 24px;
-  }
-
+  .hero .label { color: var(--teal); font-size: 13px; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; }
+  .hero .route { font-family: 'Space Mono', monospace; font-size: clamp(28px, 5vw, 42px); color: var(--gold); }
+  .hero .price { font-family: 'Space Mono', monospace; font-size: clamp(20px, 3vw, 26px); margin-top: 6px; }
+  .hero .dates { color: var(--muted); font-size: 14px; margin-top: 8px; }
+  .hero .meta { margin-top: 12px; display: flex; gap: 12px; font-size: 13px; flex-wrap: wrap; }
+  .badge { background: rgba(79, 209, 174, 0.15); color: var(--teal); padding: 3px 10px; border-radius: 4px; font-weight: 600; }
+  
+  table { width: 100%; border-collapse: collapse; font-family: 'Space Mono', monospace; font-size: 14px; }
+  thead th { text-align: left; color: var(--muted); font-family: 'Inter', sans-serif; font-weight: 500; font-size: 13px; padding: 12px; border-bottom: 1px solid var(--panel-line); }
+  tbody td { padding: 16px 12px; border-bottom: 1px solid var(--panel-line); vertical-align: middle; }
+  tbody tr:hover { background: var(--panel); }
+  .rank-badge { display: inline-block; width: 28px; text-align: center; font-weight: bold; }
+  .route-name { color: var(--text); font-size: 16px; font-weight: bold; }
+  .price-tag { color: var(--gold); font-weight: 700; font-size: 16px; }
+  .sub-info { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .btn-link { display: inline-block; margin-top: 6px; background: var(--teal); color: var(--bg); padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; text-decoration: none; }
+  .btn-link:hover { opacity: 0.9; }
+  .empty { color: var(--muted); padding: 40px 0; font-family: 'Space Mono', monospace; }
+  footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
   a { color: var(--teal); text-decoration: none; }
-  a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
   <div class="wrap">
     <header>
-      <h1>機票特價看板</h1>
-      <p class="sub">自動監測多個航線，找出目前最便宜的來回組合。資料每 6 小時更新一次。</p>
+      <h1>✈️ 直飛機票特價看板</h1>
+      <p class="sub">全面排除轉機，自動計算歷史相對特價與推薦航班。</p>
     </header>
 
     <div id="hero" class="hero" style="display:none;">
-      <div class="label">目前所有航線中最便宜的一組</div>
+      <div class="label">🔥 今日最推薦（絕對直飛）</div>
       <div class="route" id="hero-route">—</div>
       <div class="price" id="hero-price">—</div>
       <div class="dates" id="hero-dates">—</div>
+      <div class="meta" id="hero-meta"></div>
     </div>
-
-    <div id="coverage" class="coverage" style="display:none;"></div>
 
     <table id="table" style="display:none;">
       <thead>
         <tr>
-          <th></th>
-          <th>航線</th>
-          <th>最低價</th>
-          <th>去程 / 回程（天數）</th>
+          <th style="width: 40px;">名次</th>
+          <th>航線與航空公司</th>
+          <th>價格 / 評分</th>
+          <th>去回程日期與天數</th>
+          <th>操作</th>
         </tr>
       </thead>
       <tbody id="table-body"></tbody>
@@ -208,11 +108,6 @@ async function load() {
   }
 }
 
-function fmtDate(d) {
-  if (!d) return '?';
-  return d;
-}
-
 function render(data) {
   const routes = data.routes || [];
   if (routes.length === 0) return;
@@ -222,36 +117,47 @@ function render(data) {
   const best = routes[0];
   document.getElementById('hero').style.display = 'block';
   document.getElementById('hero-route').textContent = `${best.origin} → ${best.destination}`;
-  document.getElementById('hero-price').textContent = best.best_price_raw || `${best.best_price.toLocaleString()}`;
-  document.getElementById('hero-dates').textContent =
-    `去程 ${fmtDate(best.best_departure_date)} ・ 回程 ${fmtDate(best.best_return_date)}` +
-    (best.best_stay_days ? ` ・ 停留 ${best.best_stay_days} 天` : '');
+  document.getElementById('hero-price').textContent = best.best_price_raw || `NT$${best.best_price.toLocaleString()} 來回`;
+  document.getElementById('hero-dates').textContent = `去程 ${best.best_departure_date} ～ 回程 ${best.best_return_date} (${best.best_stay_days}天)`;
+  
+  document.getElementById('hero-meta').innerHTML = `
+    <span class="badge">✈️ 直飛・${best.airline || '一般航空'}</span>
+    <span class="badge">📉 比平均低 ${best.diff_percent}%</span>
+    <span class="badge" style="background:rgba(242,193,78,0.15); color:var(--gold);">🔥 Cheap Score ${best.cheap_score}</span>
+    <a href="${best.link}" target="_blank" class="btn-link" style="margin-left:auto;">🔗 前往 Google Flights 查看</a>
+  `;
 
-  if (data.total_combos_in_grid) {
-    const cov = document.getElementById('coverage');
-    cov.style.display = 'block';
-    cov.textContent =
-      `這次查了 ${data.checked_this_run} 組・全部候選日期組合共 ${data.total_combos_in_grid} 組，` +
-      `會隨每次排程慢慢掃過一輪，掃得越多次結果越準。`;
-  }
-
+  const medals = ['🥇', '🥈', '🥉'];
   const tbody = document.getElementById('table-body');
   tbody.innerHTML = '';
+
   routes.forEach((r, i) => {
+    const rankDisplay = medals[i] || String(i + 1).padStart(2, '0');
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="rank">${String(i + 1).padStart(2, '0')}</td>
-      <td class="route">${r.origin} → ${r.destination}</td>
-      <td class="price">${r.best_price_raw || r.best_price.toLocaleString()}</td>
-      <td class="dates">${fmtDate(r.best_departure_date)} ~ ${fmtDate(r.best_return_date)}${r.best_stay_days ? ` (${r.best_stay_days}天)` : ''}</td>
+      <td class="rank-badge">${rankDisplay}</td>
+      <td>
+        <div class="route-name">${r.origin} → ${r.destination}</div>
+        <div class="sub-info">✈️ ${r.airline || '直飛航班'}</div>
+      </td>
+      <td>
+        <div class="price-tag">${r.best_price_raw || 'NT$' + r.best_price.toLocaleString()}</div>
+        <div class="sub-info">📉 比平均低 ${r.diff_percent}% | Score ${r.cheap_score}</div>
+      </td>
+      <td>
+        <div>${r.best_departure_date} ~ ${r.best_return_date}</div>
+        <div class="sub-info">停留 ${r.best_stay_days} 天</div>
+      </td>
+      <td>
+        <a href="${r.link}" target="_blank" class="btn-link">查看航班</a>
+      </td>
     `;
     tbody.appendChild(tr);
   });
   document.getElementById('table').style.display = 'table';
 
   const updated = new Date(data.generated_at);
-  document.getElementById('updated-at').textContent =
-    '最後更新：' + updated.toLocaleString('zh-TW', { hour12: false });
+  document.getElementById('updated-at').textContent = '最後更新：' + updated.toLocaleString('zh-TW', { hour12: false });
 }
 
 load();
