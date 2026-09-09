@@ -7,152 +7,83 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg:#0b1220; --panel:#141e33; --panel2:#18243c; --line:#2b3853;
-    --text:#f4f7fb; --muted:#8e9bb3; --gold:#ffc94a; --teal:#58dfc1;
-    --pink:#ff8cb5; --blue:#7db1ff;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:radial-gradient(circle at top,#16233d 0,#0b1220 42%);color:var(--text);font-family:Inter,sans-serif;line-height:1.5}
-  .wrap{max-width:1120px;margin:0 auto;padding:34px 22px 80px}
-  header{margin-bottom:24px}
-  h1{font-family:"Space Mono",monospace;font-size:clamp(26px,4vw,36px);margin:0 0 7px}
-  .sub{margin:0;color:var(--muted);font-size:14px}
-  .hero{border:1px solid #34445f;background:linear-gradient(150deg,#1c2946,#121b2f 72%);border-radius:14px;padding:25px 28px;margin:0 0 24px;box-shadow:0 16px 45px rgba(0,0,0,.2)}
-  .eyebrow{color:var(--teal);font-size:13px;font-weight:800;margin-bottom:6px}
-  .hero-route{font-family:"Space Mono",monospace;color:var(--gold);font-size:clamp(24px,4.4vw,39px);line-height:1.25}
-  .hero-airport{margin-top:6px;color:#b6c2d7;font-size:12px}
-  .hero-price{font-family:"Space Mono",monospace;font-size:28px;font-weight:800;margin-top:12px}
-  .hero-dates{color:#aebad0;margin-top:5px;font-size:14px}
-  .badges{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px;align-items:center}
-  .badge{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:6px;background:rgba(88,223,193,.13);color:var(--teal);font-size:12px;font-weight:800}
-  .badge.gold{background:rgba(255,201,74,.13);color:var(--gold)}
-  .badge.pink{background:rgba(255,140,181,.11);color:#ff9ec4}
-  .button{margin-left:auto;display:inline-flex;align-items:center;padding:9px 14px;border-radius:6px;background:var(--teal);color:#07121e;text-decoration:none;font-weight:800;font-size:12px}
-  .section-title{display:flex;justify-content:space-between;align-items:end;margin:24px 2px 10px}
-  .section-title h2{margin:0;font-size:17px}
-  .section-title span{color:var(--muted);font-size:12px}
-  .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-  .card{position:relative;border:1px solid var(--line);background:rgba(20,30,51,.84);border-radius:12px;padding:17px;min-height:265px;display:flex;flex-direction:column;gap:12px}
-  .card:hover{border-color:#415575;transform:translateY(-1px)}
-  .rank{font-size:13px;font-weight:800;color:var(--muted)}
-  .route{font-size:16px;font-weight:800}
-  .route .arrow{color:var(--gold);padding:0 4px}
-  .airport-en{font-size:11px;color:var(--muted);margin-top:3px}
-  .price{font-family:"Space Mono",monospace;font-size:22px;font-weight:800;color:var(--gold)}
-  .deal-row{display:flex;flex-wrap:wrap;gap:7px}
-  .mini{font-size:11px;color:#cbd4e3}
-  .airline{font-weight:800;color:#f2f6fb}
-  .times{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:9px 0;font-size:12px;color:#c8d2e2}
-  .times span{color:var(--muted)}
-  .footer-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto}
-  .link{display:inline-flex;padding:7px 10px;border-radius:6px;background:#21304b;color:#cfe0ff;text-decoration:none;font-size:11px;font-weight:800}
-  .stay{font-size:11px;color:var(--muted)}
-  .empty{padding:30px;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
-  footer{margin-top:28px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap}
-  footer a{color:var(--teal);text-decoration:none}
-  @media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  @media(max-width:650px){.wrap{padding:24px 14px 60px}.hero{padding:20px}.grid{grid-template-columns:1fr}.button{margin-left:0}.hero-route{font-size:26px}}
+:root{--bg:#0b1220;--panel:#141e33;--panel2:#18243c;--line:#2b3853;--text:#f4f7fb;--muted:#8e9bb3;--gold:#ffc94a;--teal:#58dfc1;--pink:#ff8cb5;--blue:#7db1ff;--red:#ff7272}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at top,#16233d 0,#0b1220 42%);color:var(--text);font-family:Inter,sans-serif;line-height:1.5}
+.wrap{max-width:1160px;margin:0 auto;padding:34px 22px 80px}
+header{margin-bottom:24px}h1{font-family:"Space Mono",monospace;font-size:clamp(26px,4vw,36px);margin:0 0 7px}.sub{margin:0;color:var(--muted);font-size:14px}
+.hero{border:1px solid #34445f;background:linear-gradient(150deg,#1c2946,#121b2f 72%);border-radius:14px;padding:26px 28px;margin-bottom:24px;box-shadow:0 16px 45px rgba(0,0,0,.2)}
+.eyebrow{color:var(--teal);font-size:13px;font-weight:800;margin-bottom:6px}.hero-route{font-family:"Space Mono",monospace;color:var(--gold);font-size:clamp(24px,4.4vw,39px);line-height:1.25}.hero-airport{margin-top:7px;color:#b6c2d7;font-size:12px}.hero-price{font-family:"Space Mono",monospace;font-size:29px;font-weight:800;margin-top:12px}.hero-dates{color:#aebad0;margin-top:5px;font-size:14px}
+.badges{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px;align-items:center}.badge{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:7px;background:rgba(88,223,193,.13);color:var(--teal);font-size:12px;font-weight:800}.badge.gold{background:rgba(255,201,74,.13);color:var(--gold)}.badge.pink{background:rgba(255,140,181,.11);color:#ff9ec4}.button{margin-left:auto;display:inline-flex;align-items:center;padding:9px 14px;border-radius:7px;background:var(--teal);color:#07121e;text-decoration:none;font-weight:800;font-size:12px}
+.section-title{display:flex;justify-content:space-between;align-items:end;margin:24px 2px 11px}.section-title h2{margin:0;font-size:17px}.section-title span{color:var(--muted);font-size:12px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.card{position:relative;border:1px solid var(--line);background:rgba(20,30,51,.86);border-radius:12px;padding:17px;min-height:330px;display:flex;flex-direction:column;gap:12px;transition:.15s}.card:hover{border-color:#415575;transform:translateY(-1px)}
+.rank{font-size:13px;font-weight:800;color:var(--muted)}.route{font-size:17px;font-weight:800}.route .arrow{color:var(--gold);padding:0 5px}.airport-en{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.45}.price{font-family:"Space Mono",monospace;font-size:23px;font-weight:800;color:var(--gold)}.mini{font:600 11px Inter,sans-serif;color:#cbd4e3}.deal-row{display:flex;flex-wrap:wrap;gap:7px}.airline{font-weight:800;color:#f2f6fb}
+.timebox{border:1px solid var(--line);border-radius:9px;padding:10px 11px;background:rgba(9,16,30,.4);font-size:12px}.time-row{display:grid;grid-template-columns:48px 1fr;gap:7px;align-items:start}.time-row+.time-row{margin-top:9px;padding-top:9px;border-top:1px solid var(--line)}.time-label{color:var(--muted);font-weight:700}.time-value{font-family:"Space Mono",monospace;font-size:12px;color:#e8eef7}.time-airport{display:block;font:11px Inter,sans-serif;color:#aebad0;margin-top:2px}.plane{font-size:11px;color:#9fb0c8}
+.footer-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto}.link{display:inline-flex;padding:8px 10px;border-radius:6px;background:#21304b;color:#cfe0ff;text-decoration:none;font-size:11px;font-weight:800}.stay{font-size:11px;color:var(--muted)}.empty{padding:30px;color:var(--muted);border:1px dashed var(--line);border-radius:10px}footer{margin-top:28px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap}footer a{color:var(--teal);text-decoration:none}.warning{margin:14px 0;padding:11px 13px;border:1px solid rgba(255,114,114,.3);background:rgba(255,114,114,.08);color:#ffb4b4;border-radius:8px;font-size:12px}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:650px){.wrap{padding:24px 14px 60px}.hero{padding:20px}.grid{grid-template-columns:1fr}.button{margin-left:0}.hero-route{font-size:26px}}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <h1>✈️ 直飛機票特價排行榜</h1>
-    <p class="sub">TPE 桃園出發 · 經濟艙 2 大人 · 僅直飛 · 價格統一顯示新台幣</p>
-  </header>
+<header>
+<h1>✈️ 直飛機票特價排行榜</h1>
+<p class="sub">TPE 台北桃園出發 · 經濟艙 2 大人 · 去回都直飛 · 價格固定以新台幣 TWD 顯示</p>
+</header>
 
-  <section id="hero" class="hero" style="display:none">
-    <div class="eyebrow">🔥 今日最推薦（Cheap Score 最高）</div>
-    <div id="hero-route" class="hero-route">—</div>
-    <div id="hero-airport" class="hero-airport">—</div>
-    <div id="hero-price" class="hero-price">—</div>
-    <div id="hero-dates" class="hero-dates">—</div>
-    <div id="hero-badges" class="badges"></div>
-  </section>
+<section id="hero" class="hero" style="display:none">
+<div class="eyebrow">🔥 今日最推薦（Cheap Score 最高）</div>
+<div id="hero-route" class="hero-route">—</div>
+<div id="hero-airport" class="hero-airport">—</div>
+<div id="hero-price" class="hero-price">—</div>
+<div id="hero-dates" class="hero-dates">—</div>
+<div id="hero-badges" class="badges"></div>
+</section>
 
-  <div class="section-title">
-    <h2>📊 今日熱門目的地</h2>
-    <span id="window-note">—</span>
-  </div>
-  <div id="empty" class="empty">還沒有可顯示的航班資料，等待排程更新 latest.json。</div>
-  <section id="grid" class="grid" style="display:none"></section>
+<div id="legacy-warning" class="warning" style="display:none">⚠️ 舊版歷史價格已封存。網站會從 TWD 資料重新累積 Cheap Score，不會拿舊的 $ 美元資料混算。</div>
 
-  <footer>
-    <div id="updated-at">—</div>
-    <div>原始資料：<a href="./data/latest.json">latest.json</a> · <a href="./data/history.csv">history.csv</a></div>
-  </footer>
+<div class="section-title"><h2>📊 今日熱門目的地</h2><span id="window-note">—</span></div>
+<div id="empty" class="empty">還沒有可顯示的航班資料，等待排程更新 latest.json。</div>
+<section id="grid" class="grid" style="display:none"></section>
+
+<footer><div id="updated-at">—</div><div>原始資料：<a href="./data/latest.json">latest.json</a> · <a href="./data/history.csv">history.csv</a></div></footer>
 </div>
 <script>
-async function load(){
-  try{
-    const res=await fetch('./data/latest.json',{cache:'no-store'});
-    if(!res.ok) throw new Error('no data');
-    render(await res.json());
-  }catch(e){
-    document.getElementById('empty').style.display='block';
-  }
-}
-function safe(v,fallback='—'){return (v===null||v===undefined||v==='')?fallback:v}
-function price(v){return `NT$${Number(v||0).toLocaleString('zh-TW')}`}
-function airportLine(r,side){
-  const cn=safe(r[side+'_cn'],''); const en=safe(r[side+'_en'],'');
-  return `${cn}${en&&cn?' · ':''}${en}`
-}
-function dateLine(r){return `${safe(r.best_departure_date)} ～ ${safe(r.best_return_date)} · 停留 ${safe(r.best_stay_days)} 天`}
+async function load(){try{const res=await fetch('./data/latest.json',{cache:'no-store'});if(!res.ok)throw new Error('no data');render(await res.json())}catch(e){document.getElementById('empty').style.display='block'}}
+function safe(v,fallback='—'){return(v===null||v===undefined||v==='')?fallback:v}
+function price(v){const n=Number(v);return Number.isFinite(n)?`NT$${n.toLocaleString('zh-TW')}`:'NT$—'}
+function airportLine(r,side){const cn=safe(r[side+'_cn'],'');const en=safe(r[side+'_en'],'');const iata=safe(r[side],'');return `${cn}${en&&cn?' / ':''}${en} (${iata})`}
+function dateLine(r){return `去程 ${safe(r.best_departure_date)} · 回程 ${safe(r.best_return_date)} · 停留 ${safe(r.best_stay_days)} 天`}
 function render(data){
-  const routes=Array.isArray(data.routes)?data.routes:[];
-  if(!routes.length){return}
-  document.getElementById('empty').style.display='none';
-  document.getElementById('grid').style.display='grid';
-  document.getElementById('window-note').textContent=`最近 ${safe(data.dashboard_recent_days,14)} 天有更新 · 平均價基準 ${safe(data.recent_average_days,60)} 天`;
-
-  const best=routes[0];
-  document.getElementById('hero').style.display='block';
-  document.getElementById('hero-route').textContent=`${best.origin_cn} (${best.origin}) → ${best.destination_cn} (${best.destination})`;
-  document.getElementById('hero-airport').textContent=`${airportLine(best,'origin')} → ${airportLine(best,'destination')}`;
-  document.getElementById('hero-price').textContent=price(best.best_price);
-  document.getElementById('hero-dates').textContent=dateLine(best);
-  document.getElementById('hero-badges').innerHTML=`
-    <span class="badge">✈️ ${safe(best.airline,'航空公司資料未提供')}</span>
-    <span class="badge">🕒 去 ${safe(best.dep_time)} → ${safe(best.arr_time)}</span>
-    ${best.return_dep_time||best.return_arr_time?`<span class="badge">↩ 回 ${safe(best.return_dep_time)} → ${safe(best.return_arr_time)}</span>`:''}
-    <span class="badge pink">📉 比近期平均低 ${Math.max(0,best.diff_percent)}%</span>
-    <span class="badge gold">🔥 Cheap Score ${safe(best.cheap_score)}</span>
-    <a class="button" href="${safe(best.link,'#')}" target="_blank" rel="noopener">🔗 查看這張票</a>
-  `;
-
-  const medals=['🥇','🥈','🥉'];
-  const grid=document.getElementById('grid');
-  grid.innerHTML='';
-  routes.forEach((r,i)=>{
-    const card=document.createElement('article'); card.className='card';
-    card.innerHTML=`
-      <div class="rank">${medals[i]||'#'+(i+1)} · ${r.destination_cn} (${r.destination})</div>
-      <div>
-        <div class="route">${r.origin_cn} <span class="arrow">→</span> ${r.destination_cn}</div>
-        <div class="airport-en">${airportLine(r,'origin')} → ${airportLine(r,'destination')}</div>
-      </div>
-      <div class="price">${price(r.best_price)} <span class="mini">來回</span></div>
-      <div class="deal-row">
-        <span class="badge">✈️ ${safe(r.airline,'航空公司資料未提供')}</span>
-        <span class="badge pink">📉 低 ${Math.max(0,r.diff_percent)}%</span>
-        <span class="badge gold">🔥 Score ${safe(r.cheap_score)}</span>
-      </div>
-      <div class="times">
-        <div><span>去程</span> ${safe(r.best_departure_date)} · ${safe(r.dep_time)} → ${safe(r.arr_time)}</div>
-        <div><span>回程</span> ${safe(r.best_return_date)} · ${safe(r.return_dep_time,'依航班資料')} → ${safe(r.return_arr_time,'依航班資料')}</div>
-      </div>
-      <div class="footer-row">
-        <span class="stay">停留 ${safe(r.best_stay_days)} 天 · 最近查到 ${safe(r.last_checked_at,'—')}</span>
-        <a class="link" href="${safe(r.link,'#')}" target="_blank" rel="noopener">查看航班 ↗</a>
-      </div>`;
-    grid.appendChild(card);
-  });
-  const updated=new Date(data.generated_at);
-  document.getElementById('updated-at').textContent='最後更新：'+updated.toLocaleString('zh-TW',{hour12:false});
+ const routes=Array.isArray(data.routes)?data.routes:[]; if(!routes.length)return;
+ document.getElementById('empty').style.display='none';document.getElementById('grid').style.display='grid';
+ document.getElementById('window-note').textContent=`最近 ${safe(data.dashboard_recent_days,14)} 天更新 · 近期平均 ${safe(data.recent_average_days,60)} 天 · 幣別 ${safe(data.currency,'TWD')}`;
+ if(data.schema_version && Number(data.schema_version)>=2)document.getElementById('legacy-warning').style.display='block';
+ const best=routes[0];document.getElementById('hero').style.display='block';
+ document.getElementById('hero-route').textContent=`${best.origin_cn} (${best.origin}) → ${best.destination_cn} (${best.destination})`;
+ document.getElementById('hero-airport').textContent=`${airportLine(best,'origin')} → ${airportLine(best,'destination')}`;
+ document.getElementById('hero-price').textContent=price(best.best_price)+' 來回';
+ document.getElementById('hero-dates').textContent=dateLine(best);
+ document.getElementById('hero-badges').innerHTML=`
+   <span class="badge">✈️ ${safe(best.airline,'航空公司資料未提供')}</span>
+   <span class="badge">🛫 ${safe(best.dep_time)} → ${safe(best.arr_time)}</span>
+   <span class="badge">🛬 ${safe(best.return_dep_time)} → ${safe(best.return_arr_time)}</span>
+   <span class="badge pink">📉 比近期平均低 ${Math.max(0,Number(best.diff_percent)||0)}%</span>
+   <span class="badge gold">🔥 Cheap Score ${safe(best.cheap_score)}</span>
+   <a class="button" href="${safe(best.link,'#')}" target="_blank" rel="noopener">🔗 查看這張票</a>`;
+ const medals=['🥇','🥈','🥉'];const grid=document.getElementById('grid');grid.innerHTML='';
+ routes.forEach((r,i)=>{const card=document.createElement('article');card.className='card';
+ card.innerHTML=`
+   <div class="rank">${medals[i]||'#'+(i+1)} · ${r.destination_cn} (${r.destination})</div>
+   <div><div class="route">${r.origin_cn} <span class="arrow">→</span> ${r.destination_cn}</div><div class="airport-en">${airportLine(r,'origin')} → ${airportLine(r,'destination')}</div></div>
+   <div class="price">${price(r.best_price)} <span class="mini">來回 · 2 大人</span></div>
+   <div class="deal-row"><span class="badge">✈️ ${safe(r.airline,'航空公司資料未提供')}</span><span class="badge pink">📉 低 ${Math.max(0,Number(r.diff_percent)||0)}%</span><span class="badge gold">🔥 Score ${safe(r.cheap_score)}</span></div>
+   <div class="timebox">
+     <div class="time-row"><div class="time-label">去程</div><div class="time-value">${safe(r.best_departure_date)} · ${safe(r.dep_time)} → ${safe(r.arr_time)}<span class="time-airport">${r.origin} → ${r.destination}</span>${r.plane_type_outbound?`<span class="plane">✈️ ${r.plane_type_outbound}</span>`:''}</div></div>
+     <div class="time-row"><div class="time-label">回程</div><div class="time-value">${safe(r.best_return_date)} · ${safe(r.return_dep_time)} → ${safe(r.return_arr_time)}<span class="time-airport">${r.destination} → ${r.origin}</span>${r.plane_type_return?`<span class="plane">✈️ ${r.plane_type_return}</span>`:''}</div></div>
+   </div>
+   <div class="footer-row"><span class="stay">停留 ${safe(r.best_stay_days)} 天 · 平均 ${price(r.recent_average_price)}</span><a class="link" href="${safe(r.link,'#')}" target="_blank" rel="noopener">查看這張票 ↗</a></div>`;
+ grid.appendChild(card);});
+ const updated=new Date(data.generated_at);document.getElementById('updated-at').textContent='最後更新：'+updated.toLocaleString('zh-TW',{hour12:false});
 }
 load();
 </script>
-</body>
-</html>
+</body></html>
