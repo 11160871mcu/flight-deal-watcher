@@ -182,7 +182,7 @@
           <th></th>
           <th>航線</th>
           <th>最低價</th>
-          <th>去程 / 回程</th>
+          <th>去程 / 回程（天數）</th>
         </tr>
       </thead>
       <tbody id="table-body"></tbody>
@@ -224,7 +224,8 @@ function render(data) {
   document.getElementById('hero-route').textContent = `${best.origin} → ${best.destination}`;
   document.getElementById('hero-price').textContent = best.best_price_raw || `${best.best_price.toLocaleString()}`;
   document.getElementById('hero-dates').textContent =
-    `去程 ${fmtDate(best.best_departure_date)} ・ 回程 ${fmtDate(best.best_return_date)}`;
+    `去程 ${fmtDate(best.best_departure_date)} ・ 回程 ${fmtDate(best.best_return_date)}` +
+    (best.best_stay_days ? ` ・ 停留 ${best.best_stay_days} 天` : '');
 
   if (data.total_combos_in_grid) {
     const cov = document.getElementById('coverage');
@@ -242,7 +243,7 @@ function render(data) {
       <td class="rank">${String(i + 1).padStart(2, '0')}</td>
       <td class="route">${r.origin} → ${r.destination}</td>
       <td class="price">${r.best_price_raw || r.best_price.toLocaleString()}</td>
-      <td class="dates">${fmtDate(r.best_departure_date)} ~ ${fmtDate(r.best_return_date)}</td>
+      <td class="dates">${fmtDate(r.best_departure_date)} ~ ${fmtDate(r.best_return_date)}${r.best_stay_days ? ` (${r.best_stay_days}天)` : ''}</td>
     `;
     tbody.appendChild(tr);
   });

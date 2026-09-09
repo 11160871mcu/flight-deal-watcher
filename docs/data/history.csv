@@ -1,1 +1,1 @@
-checked_at,origin,destination,departure_date,return_date,price,price_raw,google_price_level
+checked_at,origin,destination,departure_date,return_date,stay_days,price,price_raw,google_price_level
