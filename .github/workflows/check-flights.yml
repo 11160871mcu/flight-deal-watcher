@@ -2,11 +2,8 @@ name: Check flight prices
 
 on:
   schedule:
-    # 免費、無金鑰的爬蟲方案容易因為查太頻繁被暫時限流，
-    # 預設每天只跑 1 次（UTC 22:00 = 台灣時間早上 6:00）。
-    # 想跑更頻繁可以自行調整，但風險是被 Google 暫時擋掉。
     - cron: "0 22 * * *"
-  workflow_dispatch: {}   # 讓你可以在 GitHub 網頁上手動點「Run workflow」測試
+  workflow_dispatch: {}
 
 permissions:
   contents: write
