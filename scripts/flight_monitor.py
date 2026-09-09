@@ -27,7 +27,7 @@ from datetime import date, datetime, timedelta, timezone
 import yaml
 import requests
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(ROOT, "config.yaml")
 DATA_DIR = os.path.join(ROOT, "docs", "data")
 LATEST_JSON = os.path.join(DATA_DIR, "latest.json")
