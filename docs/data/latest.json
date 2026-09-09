@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-09-09T16:16:21.415710+00:00",
-  "checked_this_run": 4,
+  "generated_at": "2026-09-09T16:20:45.463287+00:00",
+  "checked_this_run": 0,
   "total_combos_in_grid": 2226,
   "routes": [
     {
@@ -10,7 +10,13 @@
       "best_price_raw": "$523",
       "best_departure_date": "2026-10-15",
       "best_return_date": "2026-10-20",
-      "best_stay_days": "5"
+      "best_stay_days": "5",
+      "airline": "直飛航班",
+      "dep_time": "",
+      "arr_time": "",
+      "link": "#",
+      "cheap_score": 75,
+      "diff_percent": 7
     }
   ]
 }
