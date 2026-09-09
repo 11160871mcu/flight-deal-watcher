@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>機票特價看板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0F1626;
+    --panel: #161F35;
+    --panel-line: #29334C;
+    --text: #EDEFF4;
+    --muted: #8791A8;
+    --gold: #F2C14E;
+    --teal: #4FD1AE;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    line-height: 1.5;
+  }
+
+  .wrap {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+
+  header h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(28px, 5vw, 40px);
+    letter-spacing: -0.5px;
+    margin: 0 0 6px;
+  }
+
+  header p.sub {
+    color: var(--muted);
+    margin: 0 0 40px;
+    font-size: 15px;
+  }
+
+  .hero {
+    background: linear-gradient(180deg, #1B2540, #141D33);
+    border: 1px solid var(--panel-line);
+    border-radius: 4px;
+    padding: 28px 28px 24px;
+    margin-bottom: 40px;
+  }
+
+  .hero .label {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+
+  .hero .route {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(30px, 6vw, 46px);
+    color: var(--gold);
+    letter-spacing: 1px;
+  }
+
+  .hero .price {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(22px, 4vw, 28px);
+    margin-top: 6px;
+  }
+
+  .hero .dates {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 8px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+  }
+
+  thead th {
+    text-align: left;
+    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    font-size: 13px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--panel-line);
+  }
+
+  tbody td {
+    padding: 14px 12px;
+    border-bottom: 1px solid var(--panel-line);
+    vertical-align: middle;
+  }
+
+  tbody tr:hover {
+    background: var(--panel);
+  }
+
+  td.rank {
+    color: var(--muted);
+    width: 34px;
+  }
+
+  td.route {
+    color: var(--text);
+    letter-spacing: 0.5px;
+  }
+
+  td.price {
+    color: var(--gold);
+    font-weight: 700;
+  }
+
+  td.dates {
+    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+  }
+
+  .cheap-tag {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: rgba(79, 209, 174, 0.15);
+    color: var(--teal);
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  footer {
+    margin-top: 40px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .empty {
+    color: var(--muted);
+    padding: 40px 0;
+  }
+
+  .coverage {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 24px;
+  }
+
+  a { color: var(--teal); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>機票特價看板</h1>
+      <p class="sub">自動監測多個航線，找出目前最便宜的來回組合。資料每 6 小時更新一次。</p>
+    </header>
+
+    <div id="hero" class="hero" style="display:none;">
+      <div class="label">目前所有航線中最便宜的一組</div>
+      <div class="route" id="hero-route">—</div>
+      <div class="price" id="hero-price">—</div>
+      <div class="dates" id="hero-dates">—</div>
+    </div>
+
+    <div id="coverage" class="coverage" style="display:none;"></div>
+
+    <table id="table" style="display:none;">
+      <thead>
+        <tr>
+          <th></th>
+          <th>航線</th>
+          <th>最低價</th>
+          <th>去程 / 回程</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+
+    <div id="empty" class="empty">還沒有資料，等第一次排程跑完後這裡就會出現結果。</div>
+
+    <footer>
+      <div id="updated-at"></div>
+      <div style="margin-top:6px;">原始資料：<a href="./data/latest.json">latest.json</a> ・ 歷史價格：<a href="./data/history.csv">history.csv</a></div>
+    </footer>
+  </div>
+
+<script>
+async function load() {
+  try {
+    const res = await fetch('./data/latest.json', { cache: 'no-store' });
+    if (!res.ok) throw new Error('no data yet');
+    const data = await res.json();
+    render(data);
+  } catch (e) {
+    document.getElementById('empty').style.display = 'block';
+  }
+}
+
+function fmtDate(d) {
+  if (!d) return '?';
+  return d;
+}
+
+function render(data) {
+  const routes = data.routes || [];
+  if (routes.length === 0) return;
+
+  document.getElementById('empty').style.display = 'none';
+
+  const best = routes[0];
+  document.getElementById('hero').style.display = 'block';
+  document.getElementById('hero-route').textContent = `${best.origin} → ${best.destination}`;
+  document.getElementById('hero-price').textContent = best.best_price_raw || `${best.best_price.toLocaleString()}`;
+  document.getElementById('hero-dates').textContent =
+    `去程 ${fmtDate(best.best_departure_date)} ・ 回程 ${fmtDate(best.best_return_date)}`;
+
+  if (data.total_combos_in_grid) {
+    const cov = document.getElementById('coverage');
+    cov.style.display = 'block';
+    cov.textContent =
+      `這次查了 ${data.checked_this_run} 組・全部候選日期組合共 ${data.total_combos_in_grid} 組，` +
+      `會隨每次排程慢慢掃過一輪，掃得越多次結果越準。`;
+  }
+
+  const tbody = document.getElementById('table-body');
+  tbody.innerHTML = '';
+  routes.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="rank">${String(i + 1).padStart(2, '0')}</td>
+      <td class="route">${r.origin} → ${r.destination}</td>
+      <td class="price">${r.best_price_raw || r.best_price.toLocaleString()}</td>
+      <td class="dates">${fmtDate(r.best_departure_date)} ~ ${fmtDate(r.best_return_date)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('table').style.display = 'table';
+
+  const updated = new Date(data.generated_at);
+  document.getElementById('updated-at').textContent =
+    '最後更新：' + updated.toLocaleString('zh-TW', { hour12: false });
+}
+
+load();
+</script>
+</body>
+</html>

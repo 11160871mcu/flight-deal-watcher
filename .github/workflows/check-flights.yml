@@ -1,0 +1,65 @@
+name: Check flight prices
+
+on:
+  schedule:
+    # 免費、無金鑰的爬蟲方案容易因為查太頻繁被暫時限流，
+    # 預設每天只跑 1 次（UTC 22:00 = 台灣時間早上 6:00）。
+    # 想跑更頻繁可以自行調整，但風險是被 Google 暫時擋掉。
+    - cron: "0 22 * * *"
+  workflow_dispatch: {}   # 讓你可以在 GitHub 網頁上手動點「Run workflow」測試
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright (fallback for fast-flights)
+        run: python -m playwright install --with-deps chromium
+
+      - name: Run flight monitor
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python scripts/flight_monitor.py
+
+      - name: Commit updated data
+        run: |
+          git config user.name "flight-bot"
+          git config user.email "flight-bot@users.noreply.github.com"
+          git add docs/data/latest.json docs/data/history.csv docs/data/state.json
+          git diff --cached --quiet || git commit -m "更新機票價格資料 $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    needs: update-data
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
