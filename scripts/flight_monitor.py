@@ -89,13 +89,48 @@ def save_state(index):
 
 
 def _parse_price(raw_price):
-    """price 欄位是像 'NT$9,597' 這種字串，統一轉成 int（新台幣）。"""
+    """
+    只接受新台幣價格。
+    避免 fast-flights 偶爾回傳 USD，例如 "$250"，
+    被錯誤解析成 NT$250。
+    """
     if raw_price is None:
         return None
+
+    # 純數字沒有幣別資訊，先接受
     if isinstance(raw_price, (int, float)):
-        return int(raw_price)
-    digits = "".join(ch for ch in str(raw_price) if ch.isdigit())
-    return int(digits) if digits else None
+        value = int(raw_price)
+
+        # 台灣出發的國際來回票正常不應只有幾百元
+        # 小於 1000 的值高度疑似 USD，被直接捨棄
+        if value < 1000:
+            return None
+
+        return value
+
+    text = str(raw_price).strip()
+
+    # 明確出現美元符號，但不是 NT$
+    if "$" in text and "NT$" not in text:
+        print(f"⚠️ 捨棄非 TWD 價格: {text}")
+        return None
+
+    # 接受 NT$ / TWD
+    if "NT$" not in text and "TWD" not in text:
+        print(f"⚠️ 無法確認幣別，捨棄價格: {text}")
+        return None
+
+    digits = "".join(ch for ch in text if ch.isdigit())
+
+    if not digits:
+        return None
+
+    value = int(digits)
+
+    if value < 1000:
+        return None
+
+    return value
 
 
 def _safe_int(v):
@@ -166,6 +201,8 @@ def search_one(task):
             "return_date": task["return"],
 
             "price": _parse_price(best.price),
+            "price_raw": str(best.price),
+            "currency": "TWD",
             "passengers": 1,
 
             # 這個免費資料來源偶爾（約 1/4 機率）因為 Google 隨機切換
