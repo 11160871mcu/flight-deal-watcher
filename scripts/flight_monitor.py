@@ -68,12 +68,9 @@ AIRPORTS = {
 }
 
 
-def airport_label(code):
-    """回傳「中文名 英文名 (代碼)」的顯示字串，沒登記過的代碼就只顯示代碼本身"""
-    zh, en = AIRPORTS.get(code, (None, None))
-    if zh and en:
-        return {"code": code, "zh": zh, "en": en}
-    return {"code": code, "zh": code, "en": code}
+def airport_names(code):
+    """回傳 (中文名, 英文名)，沒登記過的代碼就用代碼本身當中英文名。"""
+    return AIRPORTS.get(code, (code, code))
 
 
 def load_config():
@@ -194,8 +191,16 @@ def build_booking_link(origin, destination, departure_date, return_date):
 
 def query_one_combo_details(combo, cfg):
     """對單一「出發日+回程日」組合，實際打去 Google Flights，
-    回傳這組裡面（符合直飛條件的話）最便宜的那筆航班的完整細節。"""
-    from fast_flights import FlightData, Passengers, get_flights
+    回傳這組裡面（符合直飛條件的話）最便宜的那筆航班的完整細節。
+
+    這裡故意不用套件公開的 get_flights()——它沒有讓你指定幣別的參數，
+    預設會用查詢當下那台機器的 IP 判斷幣別（GitHub Actions 的機房 IP
+    常常被判斷成美國，所以價格會顯示成美金 $523 這種樣子）。改用底層的
+    create_filter() + get_flights_from_filter(currency="TWD") 直接強制用
+    新台幣報價，就不用再自己做匯率轉換。"""
+    from fast_flights import FlightData, Passengers, create_filter, get_flights_from_filter
+
+    direct_only = cfg.get("direct_flights_only", True)
 
     flight_data = [
         FlightData(
@@ -209,15 +214,18 @@ def query_one_combo_details(combo, cfg):
             to_airport=combo["origin"],
         ),
     ]
-    result = get_flights(
+    flight_filter = create_filter(
         flight_data=flight_data,
         trip="round-trip",
         seat=cfg.get("seat", "economy"),
         passengers=Passengers(adults=cfg.get("adults", 1)),
-        fetch_mode="fallback",
+        max_stops=0 if direct_only else None,
     )
-
-    direct_only = cfg.get("direct_flights_only", True)
+    result = get_flights_from_filter(
+        flight_filter,
+        currency="TWD",
+        mode=cfg.get("fetch_mode", "fallback"),
+    )
 
     best_price = None
     best_raw = None
@@ -347,17 +355,27 @@ def summarize_history(cfg, now_dt):
         score = cheap_score(best_row["price"], other_prices)
 
         avg = recent_average_price(route_rows, recent_average_days, now_dt)
-        discount_pct = None
+        diff_percent = None
         if avg and avg > 0:
-            discount_pct = round((avg - best_row["price"]) / avg * 100)
+            diff_percent = round((avg - best_row["price"]) / avg * 100)
+
+        origin_cn, origin_en = airport_names(origin)
+        dest_cn, dest_en = airport_names(destination)
+
+        last_checked_dt = max(
+            (r["checked_at_dt"] for r in route_rows if r.get("checked_at_dt")),
+            default=None,
+        )
 
         routes.append(
             {
                 "origin": origin,
                 "destination": destination,
-                "origin_airport": airport_label(origin),
-                "destination_airport": airport_label(destination),
-                "best_price": best_row["price"],
+                "origin_cn": origin_cn,
+                "origin_en": origin_en,
+                "destination_cn": dest_cn,
+                "destination_en": dest_en,
+                "best_price": round(best_row["price"]),
                 "best_price_raw": best_row.get("price_raw", ""),
                 "best_departure_date": best_row["departure_date"],
                 "best_return_date": best_row["return_date"],
@@ -365,11 +383,17 @@ def summarize_history(cfg, now_dt):
                 "airline": best_row.get("airline") or None,
                 "dep_time": best_row.get("dep_time") or None,
                 "arr_time": best_row.get("arr_time") or None,
-                "booking_link": best_row.get("booking_link") or None,
+                # fast-flights 只能穩定抓到去程那一段的顯示時間，回程的實際
+                # 時刻要點進訂票連結才會看到，這裡先留 None，前端會顯示
+                # 「依航班資料」當提示。
+                "return_dep_time": None,
+                "return_arr_time": None,
+                "link": best_row.get("booking_link") or None,
                 "cheap_score": score,
                 "recent_average_price": round(avg) if avg else None,
-                "discount_pct_recent": discount_pct,
+                "diff_percent": diff_percent,
                 "sample_size": len(route_rows),
+                "last_checked_at": last_checked_dt.isoformat() if last_checked_dt else None,
             }
         )
 
@@ -509,6 +533,7 @@ def main():
         "checked_this_run": len(history_rows),
         "total_combos_in_grid": len(combos),
         "recent_average_days": cfg.get("recent_average_days", 60),
+        "dashboard_recent_days": cfg.get("recent_average_days", 60),
         "top_pick": top_pick,
         "routes": routes_summary,
     }
