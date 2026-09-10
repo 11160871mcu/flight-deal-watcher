@@ -2608,6 +2608,48 @@ function applyFilters(){
 
 
 /* =========================================================
+   GROUP BY PRICE
+========================================================= */
+
+function groupByPrice(rows){
+
+    const result=[];
+
+    rows.forEach(deal=>{
+
+        if (!deal.flight_options || deal.flight_options.length === 0) {
+            result.push(deal);
+            return;
+        }
+
+        const map={};
+
+        deal.flight_options.forEach(option=>{
+
+            const key = option.price || deal.price;
+
+            if(!map[key]){
+                map[key]={
+                    ...deal,
+                    price:key,
+                    flight_options:[]
+                };
+            }
+
+            map[key].flight_options.push(option);
+
+        });
+
+        Object.values(map)
+            .forEach(x=>result.push(x));
+
+    });
+
+    return result;
+}
+
+
+/* =========================================================
    SORT
 ========================================================= */
 
@@ -2858,10 +2900,8 @@ function filterSummary(
 
 function renderCurrent(){
 
-  const rows=
-    sortRows(
-      CURRENT_RESULTS
-    );
+  let rows = groupByPrice(CURRENT_RESULTS);
+  rows = sortRows(rows);
 
   $("resultCount")
     .textContent=
