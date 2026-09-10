@@ -44,7 +44,7 @@ urgent_checks_per_run: 480
 # hot：未來 180 天，只搜常見停留天數 (5/7/10/14)
 hot_days: 180
 # 8 個目的地 -> 每個目的地 50 組
-hot_checks_per_run: 400
+hot_checks_per_run: 300
 
 # explore：往後 12 個月，只搜 7 天停留
 explore_months_ahead: 12

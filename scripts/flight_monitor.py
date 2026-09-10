@@ -894,7 +894,6 @@ def fetch_candidates(
             search_filter
         )
 
-
         return result
 
 
@@ -917,72 +916,12 @@ def fetch_candidates(
 # ============================================================
 
 
-def extract_price(
-    flight
-):
-
-
-    candidates=[]
-
-
-
-    for attr in [
-        "price",
-        "total_price",
-        "price_amount",
-    ]:
-
-        if hasattr(
-            flight,
-            attr
-        ):
-
-            value=getattr(
-                flight,
-                attr
-            )
-
-
-            p=parse_price(
-                value
-            )
-
-
-            if p:
-
-                candidates.append(
-                    p
-                )
-
-
-
-    if not candidates:
-
-        return None
-
-
-
-    return min(
-        candidates
-    )
-
-
-
-
-
-def extract_options(
-    result
-):
-
-
-    options=[]
-
+def extract_price(result):
 
     if result is None:
+        return None
 
-        return options
-
-
+    prices=[]
 
     flights=getattr(
         result,
@@ -990,41 +929,153 @@ def extract_options(
         []
     )
 
+    for f in flights:
 
+        price=parse_price(
+            getattr(
+                f,
+                "price",
+                None
+            )
+        )
+
+        if price:
+
+            prices.append(
+                price
+            )
+
+    if not prices:
+
+        return None
+
+    # 保留真正最低價格
+    return min(prices)
+
+
+def extract_options(result):
+
+    if result is None:
+        return []
+
+    flights=getattr(
+        result,
+        "flights",
+        []
+    )
+
+    options=[]
+
+    seen=set()
 
     for f in flights:
 
-
-        item={}
-
-
-
-        for key in [
-            "airline",
-            "departure",
-            "arrival",
-            "duration",
-            "stops",
-        ]:
-
-
-            if hasattr(
-                f,
-                key
-            ):
-
-                item[key]=str(
-                    getattr(
-                        f,
-                        key
-                    )
-                )
-
-
-        options.append(
-            item
+        airline=getattr(
+            f,
+            "name",
+            ""
         )
 
+        departure=getattr(
+            f,
+            "departure",
+            ""
+        )
+
+        arrival=getattr(
+            f,
+            "arrival",
+            ""
+        )
+
+        duration=getattr(
+            f,
+            "duration",
+            ""
+        )
+
+        stops=getattr(
+            f,
+            "stops",
+            None
+        )
+
+        price=parse_price(
+            getattr(
+                f,
+                "price",
+                None
+            )
+        )
+
+        # 只排除完全沒有航班資訊的價格項
+        if (
+            not airline
+            and
+            not departure
+            and
+            not arrival
+        ):
+            continue
+
+        option={
+
+            "airline":
+                airline
+                or
+                "Unknown",
+
+            "departure":
+                departure,
+
+            "arrival":
+                arrival,
+
+            "duration":
+                duration,
+
+            "stops":
+                (
+                    str(stops)
+                    if stops is not None
+                    else "Unknown"
+                ),
+
+            "price":
+                price
+
+        }
+
+        key=(
+
+            option["airline"],
+
+            option["departure"],
+
+            option["arrival"],
+
+            option["price"]
+
+        )
+
+        if key in seen:
+            continue
+
+        seen.add(key)
+
+        options.append(
+            option
+        )
+
+    # 按價格排序
+    options.sort(
+        key=lambda x:
+            (
+                x["price"]
+                if x["price"]
+                else 999999
+            )
+    )
 
     return options
 
@@ -1121,7 +1172,6 @@ def process_task(
         return None
 
 
-
     price=extract_price(
         result
     )
@@ -1133,12 +1183,9 @@ def process_task(
         return None
 
 
-
     options=extract_options(
         result
     )
-
-
 
     # 有價格但抓不到航空公司/時間等 metadata 時，依設定重試
 
@@ -1378,6 +1425,9 @@ def calculate_cheap_score(
                     row["checked_at"]
                 )
 
+                # 相容舊 history.csv，若沒有時區則補上
+                if checked.tzinfo is None:
+                    checked = checked.replace(tzinfo=ZoneInfo(tz))
 
             except Exception:
 
