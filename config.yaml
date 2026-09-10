@@ -44,12 +44,12 @@ direct_flights_only: true
 
 # 艙等 / 人數
 seat: "economy"      # economy / premium-economy / business / first
-adults: 2
+adults: 1
 
 # 每次排程最多查幾組（避免查太快被 Google 暫時限流）
 # 7 條航線、天數範圍展開後候選組合會很多，建議搭配較密集的排程頻率
 # （見 .github/workflows/check-flights.yml 的 cron），慢慢累積掃過整個範圍
-max_checks_per_run: 8
+max_checks_per_run: 30
 
 # 「比近期平均低 X%」用的比較基準：拿這條航線最近幾天查到的價格算平均。
 # 如果最近這幾天樣本太少（例如剛上線沒幾天），會自動退回用全部歷史價格當基準。
