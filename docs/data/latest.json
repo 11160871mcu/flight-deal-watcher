@@ -1,22 +1,17 @@
 {
-  "generated_at": "2026-09-10T07:33:04.441442+00:00",
-  "checked_this_run": 5,
+  "generated_at": "2026-09-10T07:53:02.082071+00:00",
+  "checked_this_run": 6,
   "total_combos_in_grid": 2226,
   "recent_average_days": 60,
+  "dashboard_recent_days": 60,
   "top_pick": {
     "origin": "TPE",
     "destination": "NRT",
-    "origin_airport": {
-      "code": "TPE",
-      "zh": "台北桃園",
-      "en": "Taipei Taoyuan"
-    },
-    "destination_airport": {
-      "code": "NRT",
-      "zh": "東京成田",
-      "en": "Tokyo Narita"
-    },
-    "best_price": 523.0,
+    "origin_cn": "台北桃園",
+    "origin_en": "Taipei Taoyuan",
+    "destination_cn": "東京成田",
+    "destination_en": "Tokyo Narita",
+    "best_price": 523,
     "best_price_raw": "$523",
     "best_departure_date": "2026-10-15",
     "best_return_date": "2026-10-20",
@@ -24,27 +19,24 @@
     "airline": null,
     "dep_time": null,
     "arr_time": null,
-    "booking_link": null,
+    "return_dep_time": null,
+    "return_arr_time": null,
+    "link": null,
     "cheap_score": 100,
-    "recent_average_price": 600,
-    "discount_pct_recent": 13,
-    "sample_size": 9
+    "recent_average_price": 12764,
+    "diff_percent": 96,
+    "sample_size": 15,
+    "last_checked_at": "2026-09-10T07:53:02.082071+00:00"
   },
   "routes": [
     {
       "origin": "TPE",
       "destination": "NRT",
-      "origin_airport": {
-        "code": "TPE",
-        "zh": "台北桃園",
-        "en": "Taipei Taoyuan"
-      },
-      "destination_airport": {
-        "code": "NRT",
-        "zh": "東京成田",
-        "en": "Tokyo Narita"
-      },
-      "best_price": 523.0,
+      "origin_cn": "台北桃園",
+      "origin_en": "Taipei Taoyuan",
+      "destination_cn": "東京成田",
+      "destination_en": "Tokyo Narita",
+      "best_price": 523,
       "best_price_raw": "$523",
       "best_departure_date": "2026-10-15",
       "best_return_date": "2026-10-20",
@@ -52,11 +44,14 @@
       "airline": null,
       "dep_time": null,
       "arr_time": null,
-      "booking_link": null,
+      "return_dep_time": null,
+      "return_arr_time": null,
+      "link": null,
       "cheap_score": 100,
-      "recent_average_price": 600,
-      "discount_pct_recent": 13,
-      "sample_size": 9
+      "recent_average_price": 12764,
+      "diff_percent": 96,
+      "sample_size": 15,
+      "last_checked_at": "2026-09-10T07:53:02.082071+00:00"
     }
   ]
 }
