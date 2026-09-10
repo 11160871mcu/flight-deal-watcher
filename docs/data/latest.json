@@ -1,0 +1,62 @@
+{
+  "generated_at": "2026-09-10T07:33:04.441442+00:00",
+  "checked_this_run": 5,
+  "total_combos_in_grid": 2226,
+  "recent_average_days": 60,
+  "top_pick": {
+    "origin": "TPE",
+    "destination": "NRT",
+    "origin_airport": {
+      "code": "TPE",
+      "zh": "台北桃園",
+      "en": "Taipei Taoyuan"
+    },
+    "destination_airport": {
+      "code": "NRT",
+      "zh": "東京成田",
+      "en": "Tokyo Narita"
+    },
+    "best_price": 523.0,
+    "best_price_raw": "$523",
+    "best_departure_date": "2026-10-15",
+    "best_return_date": "2026-10-20",
+    "best_stay_days": "5",
+    "airline": null,
+    "dep_time": null,
+    "arr_time": null,
+    "booking_link": null,
+    "cheap_score": 100,
+    "recent_average_price": 600,
+    "discount_pct_recent": 13,
+    "sample_size": 9
+  },
+  "routes": [
+    {
+      "origin": "TPE",
+      "destination": "NRT",
+      "origin_airport": {
+        "code": "TPE",
+        "zh": "台北桃園",
+        "en": "Taipei Taoyuan"
+      },
+      "destination_airport": {
+        "code": "NRT",
+        "zh": "東京成田",
+        "en": "Tokyo Narita"
+      },
+      "best_price": 523.0,
+      "best_price_raw": "$523",
+      "best_departure_date": "2026-10-15",
+      "best_return_date": "2026-10-20",
+      "best_stay_days": "5",
+      "airline": null,
+      "dep_time": null,
+      "arr_time": null,
+      "booking_link": null,
+      "cheap_score": 100,
+      "recent_average_price": 600,
+      "discount_pct_recent": 13,
+      "sample_size": 9
+    }
+  ]
+}
