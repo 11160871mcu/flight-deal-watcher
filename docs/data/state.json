@@ -3,14 +3,14 @@
   "grid_signature": "c899fe5bf5d54e574954ce8cfe62c51eee1f304f",
   "grid_start_date": "2026-09-10",
   "next_index_by_route": {
-    "TPE|NRT": 60,
-    "TPE|HND": 60,
-    "TPE|KIX": 60,
-    "TPE|FUK": 60,
-    "TPE|CTS": 60,
-    "TPE|OKA": 60,
-    "TPE|ICN": 60,
-    "TPE|PUS": 60
+    "TPE|NRT": 72,
+    "TPE|HND": 72,
+    "TPE|KIX": 72,
+    "TPE|FUK": 72,
+    "TPE|CTS": 72,
+    "TPE|OKA": 72,
+    "TPE|ICN": 72,
+    "TPE|PUS": 72
   },
-  "extra_rotation": 5
+  "extra_rotation": 6
 }
