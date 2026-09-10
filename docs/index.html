@@ -1275,7 +1275,7 @@ const AIRLINES={
     "首爾航空",
 
   "Aero K":
-    "可依航空",
+    "Aero K航空",
 
   "Scoot":
     "酷航",
@@ -1293,7 +1293,7 @@ const AIRLINES={
     "泰國亞洲航空X",
 
   "Thai Lion Air":
-    "泰獅航空",
+    "泰國獅子航空",
 
   "VietJet Air":
     "越捷航空",
@@ -1356,19 +1356,71 @@ const $=
   id=>
     document.getElementById(id);
 
-/* =========================================================
-   UI TOGGLES
-========================================================= */
+
+// =====================================================
+// Accordion Filter
+// =====================================================
 
 function toggleMainFilter(){
-  $("filterBody").classList.toggle("collapsed");
-  $("mainFilterArrow").classList.toggle("open");
+
+    const body =
+        document.getElementById(
+            "filterBody"
+        );
+
+    const arrow =
+        document.getElementById(
+            "mainFilterArrow"
+        );
+
+
+    body.classList.toggle(
+        "collapsed"
+    );
+
+
+    arrow.classList.toggle(
+        "open"
+    );
+
 }
 
-function toggleInner(bodyId, arrowId){
-  $(bodyId).classList.toggle("collapsed");
-  $(arrowId).classList.toggle("open");
+
+function toggleInner(
+    bodyId,
+    arrowId
+){
+
+    const body =
+        document.getElementById(
+            bodyId
+        );
+
+
+    const arrow =
+        document.getElementById(
+            arrowId
+        );
+
+
+    if(!body) return;
+
+
+    body.classList.toggle(
+        "collapsed"
+    );
+
+
+    if(arrow){
+
+        arrow.classList.toggle(
+            "open"
+        );
+
+    }
+
 }
+
 
 /* =========================================================
    HELPERS
