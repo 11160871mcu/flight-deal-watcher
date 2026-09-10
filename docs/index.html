@@ -2617,35 +2617,61 @@ function groupByPrice(rows){
 
     rows.forEach(deal=>{
 
-        if (!deal.flight_options || deal.flight_options.length === 0) {
+        const options =
+            Array.isArray(deal.flight_options)
+            ?
+            deal.flight_options
+            :
+            [];
+
+        // 沒有航班明細，保留原資料
+        if(!options.length){
+
             result.push(deal);
             return;
+
         }
 
-        const map={};
+        const groups={};
 
-        deal.flight_options.forEach(option=>{
+        options.forEach(option=>{
 
-            const key = option.price || deal.price;
+            const price =
+                Number(
+                    option.price
+                    ||
+                    deal.price
+                );
 
-            if(!map[key]){
-                map[key]={
+            if(!groups[price]){
+
+                groups[price]={
                     ...deal,
-                    price:key,
+
+                    price:price,
+
                     flight_options:[]
                 };
+
             }
 
-            map[key].flight_options.push(option);
+            groups[price]
+                .flight_options
+                .push(option);
 
         });
 
-        Object.values(map)
-            .forEach(x=>result.push(x));
+        Object.values(groups)
+            .forEach(item=>{
+
+                result.push(item);
+
+            });
 
     });
 
     return result;
+
 }
 
 
@@ -2900,8 +2926,13 @@ function filterSummary(
 
 function renderCurrent(){
 
-  let rows = groupByPrice(CURRENT_RESULTS);
-  rows = sortRows(rows);
+  let rows =
+    sortRows(
+      CURRENT_RESULTS
+    );
+
+  rows =
+    groupByPrice(rows);
 
   $("resultCount")
     .textContent=
