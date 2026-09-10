@@ -1,158 +1,239 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>✈️ 機票特價排行榜 · TWD</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg:#0b1220; --panel:#141e33; --panel2:#18243c; --line:#2b3853;
-    --text:#f4f7fb; --muted:#8e9bb3; --gold:#ffc94a; --teal:#58dfc1;
-    --pink:#ff8cb5; --blue:#7db1ff;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:radial-gradient(circle at top,#16233d 0,#0b1220 42%);color:var(--text);font-family:Inter,sans-serif;line-height:1.5}
-  .wrap{max-width:1120px;margin:0 auto;padding:34px 22px 80px}
-  header{margin-bottom:24px}
-  h1{font-family:"Space Mono",monospace;font-size:clamp(26px,4vw,36px);margin:0 0 7px}
-  .sub{margin:0;color:var(--muted);font-size:14px}
-  .hero{border:1px solid #34445f;background:linear-gradient(150deg,#1c2946,#121b2f 72%);border-radius:14px;padding:25px 28px;margin:0 0 24px;box-shadow:0 16px 45px rgba(0,0,0,.2)}
-  .eyebrow{color:var(--teal);font-size:13px;font-weight:800;margin-bottom:6px}
-  .hero-route{font-family:"Space Mono",monospace;color:var(--gold);font-size:clamp(24px,4.4vw,39px);line-height:1.25}
-  .hero-airport{margin-top:6px;color:#b6c2d7;font-size:12px}
-  .hero-price{font-family:"Space Mono",monospace;font-size:28px;font-weight:800;margin-top:12px}
-  .hero-dates{color:#aebad0;margin-top:5px;font-size:14px}
-  .badges{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px;align-items:center}
-  .badge{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:6px;background:rgba(88,223,193,.13);color:var(--teal);font-size:12px;font-weight:800}
-  .badge.gold{background:rgba(255,201,74,.13);color:var(--gold)}
-  .badge.pink{background:rgba(255,140,181,.11);color:#ff9ec4}
-  .button{margin-left:auto;display:inline-flex;align-items:center;padding:9px 14px;border-radius:6px;background:var(--teal);color:#07121e;text-decoration:none;font-weight:800;font-size:12px}
-  .section-title{display:flex;justify-content:space-between;align-items:end;margin:24px 2px 10px}
-  .section-title h2{margin:0;font-size:17px}
-  .section-title span{color:var(--muted);font-size:12px}
-  .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-  .card{position:relative;border:1px solid var(--line);background:rgba(20,30,51,.84);border-radius:12px;padding:17px;min-height:265px;display:flex;flex-direction:column;gap:12px}
-  .card:hover{border-color:#415575;transform:translateY(-1px)}
-  .rank{font-size:13px;font-weight:800;color:var(--muted)}
-  .route{font-size:16px;font-weight:800}
-  .route .arrow{color:var(--gold);padding:0 4px}
-  .airport-en{font-size:11px;color:var(--muted);margin-top:3px}
-  .price{font-family:"Space Mono",monospace;font-size:22px;font-weight:800;color:var(--gold)}
-  .deal-row{display:flex;flex-wrap:wrap;gap:7px}
-  .mini{font-size:11px;color:#cbd4e3}
-  .airline{font-weight:800;color:#f2f6fb}
-  .times{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:9px 0;font-size:12px;color:#c8d2e2}
-  .times span{color:var(--muted)}
-  .footer-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto}
-  .link{display:inline-flex;padding:7px 10px;border-radius:6px;background:#21304b;color:#cfe0ff;text-decoration:none;font-size:11px;font-weight:800}
-  .stay{font-size:11px;color:var(--muted)}
-  .empty{padding:30px;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
-  footer{margin-top:28px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap}
-  footer a{color:var(--teal);text-decoration:none}
-  @media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  @media(max-width:650px){.wrap{padding:24px 14px 60px}.hero{padding:20px}.grid{grid-template-columns:1fr}.button{margin-left:0}.hero-route{font-size:26px}}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✈️ 直飛機票特價排行榜 · TWD</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body>
-<div class="wrap">
-  <header>
-    <h1>✈️ 直飛機票特價排行榜</h1>
-    <p class="sub">TPE 桃園出發 · 經濟艙 2 大人 · 僅直飛 · 價格統一顯示新台幣</p>
-  </header>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
 
-  <section id="hero" class="hero" style="display:none">
-    <div class="eyebrow">🔥 今日最推薦（Cheap Score 最高）</div>
-    <div id="hero-route" class="hero-route">—</div>
-    <div id="hero-airport" class="hero-airport">—</div>
-    <div id="hero-price" class="hero-price">—</div>
-    <div id="hero-dates" class="hero-dates">—</div>
-    <div id="hero-badges" class="badges"></div>
-  </section>
+    <!-- 頂部導覽列 -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-plane-departure text-indigo-600"></i> 直飛機票特價排行榜
+                </h1>
+                <p class="text-xs text-slate-500 mt-0.5" id="meta-info">載入中...</p>
+            </div>
+            <!-- 篩選控制列 -->
+            <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                <div class="relative flex-1 md:flex-initial">
+                    <select id="filter-dest" class="w-full md:w-auto text-sm bg-slate-100 border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-indigo-500">
+                        <option value="">所有目的地</option>
+                    </select>
+                </div>
+                <div class="relative flex-1 md:flex-initial">
+                    <select id="sort-by" class="w-full md:w-auto text-sm bg-slate-100 border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-indigo-500">
+                        <option value="score">排序：Cheap Score 最高</option>
+                        <option value="price-asc">排序：價格由低到高</option>
+                        <option value="discount">排序：比平均跌幅最多</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </header>
 
-  <div class="section-title">
-    <h2>📊 今日熱門目的地</h2>
-    <span id="window-note">—</span>
-  </div>
-  <div id="empty" class="empty">還沒有可顯示的航班資料，等待排程更新 latest.json。</div>
-  <section id="grid" class="grid" style="display:none"></section>
+    <!-- 主要內容區 -->
+    <main class="max-w-6xl mx-auto px-4 py-8 flex-1 w-full space-y-8">
 
-  <footer>
-    <div id="updated-at">—</div>
-    <div>原始資料：<a href="./data/latest.json">latest.json</a> · <a href="./data/history.csv">history.csv</a></div>
-  </footer>
-</div>
-<script>
-async function load(){
-  try{
-    const res=await fetch('./data/latest.json',{cache:'no-store'});
-    if(!res.ok) throw new Error('no data');
-    render(await res.json());
-  }catch(e){
-    document.getElementById('empty').style.display='block';
-  }
-}
-function safe(v,fallback='—'){return (v===null||v===undefined||v==='')?fallback:v}
-function price(v){return `NT$${Number(v||0).toLocaleString('zh-TW')}`}
-function airportLine(r,side){
-  const cn=safe(r[side+'_cn'],''); const en=safe(r[side+'_en'],'');
-  return `${cn}${en&&cn?' · ':''}${en}`
-}
-function dateLine(r){return `${safe(r.best_departure_date)} ～ ${safe(r.best_return_date)} · 停留 ${safe(r.best_stay_days)} 天`}
-function render(data){
-  const routes=Array.isArray(data.routes)?data.routes:[];
-  if(!routes.length){return}
-  document.getElementById('empty').style.display='none';
-  document.getElementById('grid').style.display='grid';
-  document.getElementById('window-note').textContent=`最近 ${safe(data.dashboard_recent_days,14)} 天有更新 · 平均價基準 ${safe(data.recent_average_days,60)} 天`;
+        <!-- 今日最推薦區塊 -->
+        <section id="top-pick-section" class="hidden">
+            <h2 class="text-sm font-bold tracking-wider text-slate-400 uppercase mb-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-fire text-amber-500"></i> 今日最推薦（Cheap Score 最高）
+            </h2>
+            <div id="top-pick-card" class="bg-gradient-to-br from-indigo-900 to-slate-900 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden">
+                <!-- 動態填入 -->
+            </div>
+        </section>
 
-  const best=routes[0];
-  document.getElementById('hero').style.display='block';
-  document.getElementById('hero-route').textContent=`${best.origin_cn} (${best.origin}) → ${best.destination_cn} (${best.destination})`;
-  document.getElementById('hero-airport').textContent=`${airportLine(best,'origin')} → ${airportLine(best,'destination')}`;
-  document.getElementById('hero-price').textContent=price(best.best_price);
-  document.getElementById('hero-dates').textContent=dateLine(best);
-  document.getElementById('hero-badges').innerHTML=`
-    <span class="badge">✈️ ${safe(best.airline,'航空公司資料未提供')}</span>
-    <span class="badge">🕒 去 ${safe(best.dep_time)} → ${safe(best.arr_time)}</span>
-    ${best.return_dep_time||best.return_arr_time?`<span class="badge">↩ 回 ${safe(best.return_dep_time)} → ${safe(best.return_arr_time)}</span>`:''}
-    <span class="badge pink">📉 比近期平均低 ${Math.max(0,best.diff_percent)}%</span>
-    <span class="badge gold">🔥 Cheap Score ${safe(best.cheap_score)}</span>
-    <a class="button" href="${safe(best.link,'#')}" target="_blank" rel="noopener">🔗 查看這張票</a>
-  `;
+        <!-- 排行榜清單 -->
+        <section>
+            <h2 class="text-sm font-bold tracking-wider text-slate-400 uppercase mb-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-ranking-star text-indigo-600"></i> 熱門航線排行榜
+            </h2>
+            <div id="routes-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- 動態填入 -->
+            </div>
+            <div id="no-data" class="hidden bg-white rounded-xl p-12 text-center border border-slate-200 text-slate-400">
+                還沒有可顯示的航班資料，等待排程更新 latest.json。
+            </div>
+        </section>
 
-  const medals=['🥇','🥈','🥉'];
-  const grid=document.getElementById('grid');
-  grid.innerHTML='';
-  routes.forEach((r,i)=>{
-    const card=document.createElement('article'); card.className='card';
-    card.innerHTML=`
-      <div class="rank">${medals[i]||'#'+(i+1)} · ${r.destination_cn} (${r.destination})</div>
-      <div>
-        <div class="route">${r.origin_cn} <span class="arrow">→</span> ${r.destination_cn}</div>
-        <div class="airport-en">${airportLine(r,'origin')} → ${airportLine(r,'destination')}</div>
-      </div>
-      <div class="price">${price(r.best_price)} <span class="mini">來回</span></div>
-      <div class="deal-row">
-        <span class="badge">✈️ ${safe(r.airline,'航空公司資料未提供')}</span>
-        <span class="badge pink">📉 低 ${Math.max(0,r.diff_percent)}%</span>
-        <span class="badge gold">🔥 Score ${safe(r.cheap_score)}</span>
-      </div>
-      <div class="times">
-        <div><span>去程</span> ${safe(r.best_departure_date)} · ${safe(r.dep_time)} → ${safe(r.arr_time)}</div>
-        <div><span>回程</span> ${safe(r.best_return_date)} · ${safe(r.return_dep_time,'依航班資料')} → ${safe(r.return_arr_time,'依航班資料')}</div>
-      </div>
-      <div class="footer-row">
-        <span class="stay">停留 ${safe(r.best_stay_days)} 天 · 最近查到 ${safe(r.last_checked_at,'—')}</span>
-        <a class="link" href="${safe(r.link,'#')}" target="_blank" rel="noopener">查看航班 ↗</a>
-      </div>`;
-    grid.appendChild(card);
-  });
-  const updated=new Date(data.generated_at);
-  document.getElementById('updated-at').textContent='最後更新：'+updated.toLocaleString('zh-TW',{hour12:false});
-}
-load();
-</script>
+    </main>
+
+    <!-- 頁尾 -->
+    <footer class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-400">
+        <p>原始資料：<a href="data/latest.json" target="_blank" class="underline hover:text-indigo-600">latest.json</a> · <a href="data/history.csv" target="_blank" class="underline hover:text-indigo-600">history.csv</a></p>
+    </footer>
+
+    <script>
+        let globalData = null;
+
+        async function loadData() {
+            try {
+                const res = await fetch('data/latest.json?' + new Date().getTime());
+                if (!res.ok) throw new Error('找不到資料');
+                globalData = await res.json();
+                render(globalData);
+            } catch (err) {
+                document.getElementById('no-data').classList.remove('hidden');
+                document.getElementById('meta-info').innerText = '尚無航班資料';
+            }
+        }
+
+        function render(data) {
+            // 更新上方標頭資訊
+            const genDate = data.generated_at ? new Date(data.generated_at).toLocaleString('zh-TW', { hour12: false }) : '未知';
+            document.getElementById('meta-info').innerHTML = `TPE 台北桃園出發 · 經濟艙 2 大人 · 僅直飛 · 最後更新: ${genDate} · 已累積掃描 ${data.routes.length} 條航線`;
+
+            // 填入目的地下拉選單
+            const select = document.getElementById('filter-dest');
+            const currentSelected = select.value;
+            const destinations = [...new Set(data.routes.map(r => r.destination))];
+            select.innerHTML = '<option value="">所有目的地</option>' + destinations.map(d => {
+                const r = data.routes.find(x => x.destination === d);
+                return `<option value="${d}" ${d === currentSelected ? 'selected' : ''}>${r.destination_cn} (${d})</option>`;
+            }).join('');
+
+            // 渲染今日最推薦
+            const topSection = document.getElementById('top-pick-section');
+            if (data.top_pick) {
+                topSection.classList.remove('hidden');
+                renderTopPick(data.top_pick);
+            } else {
+                topSection.classList.add('hidden');
+            }
+
+            // 渲染列表
+            filterAndRenderRoutes();
+        }
+
+        function renderTopPick(tp) {
+            const card = document.getElementById('top-pick-card');
+            const badge = `<span class="bg-amber-400 text-slate-950 font-bold px-2.5 py-1 rounded-md text-xs inline-flex items-center gap-1 shadow-xs"><i class="fa-solid fa-crown"></i> 今日最推薦</span>`;
+            
+            card.innerHTML = `
+                <div class="absolute -right-6 -bottom-6 text-white/5 text-9xl font-black pointer-events-none">${tp.destination}</div>
+                <div class="flex justify-between items-start gap-4 mb-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">${badge} <span class="text-xs text-indigo-200">${tp.destination_en}</span></div>
+                        <h3 class="text-2xl font-black tracking-tight">${tp.destination_cn} (${tp.destination})</h3>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-3xl font-black text-amber-300">NT$${tp.best_price.toLocaleString()} <span class="text-xs font-normal text-indigo-200">來回</span></div>
+                        <div class="text-xs text-indigo-200">${tp.airline || '直飛航班'}</div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm bg-white/10 backdrop-blur-xs rounded-xl p-3.5 mb-4 border border-white/10">
+                    <div><span class="text-indigo-200">日期：</span>${tp.best_departure_date} ~ ${tp.best_return_date} (${tp.best_stay_days}天)</div>
+                    <div><span class="text-indigo-200">去程起降：</span>${tp.dep_time || '依航班'} → ${tp.arr_time || '依航班'}</div>
+                </div>
+                <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/10 text-xs">
+                    <div class="flex items-center gap-3">
+                        <span class="text-emerald-300 font-semibold"><i class="fa-solid fa-chart-line-down"></i> 比近期平均低 ${tp.diff_percent ?? '--'}%</span>
+                        <span class="bg-indigo-500/50 px-2 py-0.5 rounded text-indigo-100 font-mono">Cheap Score ${tp.cheap_score ?? '--'}</span>
+                    </div>
+                    ${tp.link ? `<a href="${tp.link}" target="_blank" class="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2 rounded-lg transition shadow-md flex items-center gap-1.5"><i class="fa-solid fa-arrow-up-right-from-square"></i> 立即查看/訂票</a>` : ''}
+                </div>
+            `;
+        }
+
+        function filterAndRenderRoutes() {
+            if (!globalData || !globalData.routes) return;
+            
+            const destFilter = document.getElementById('filter-dest').value;
+            const sortBy = document.getElementById('sort-by').value;
+
+            let list = [...globalData.routes];
+
+            if (destFilter) {
+                list = list.filter(r => r.destination === destFilter);
+            }
+
+            // 排序邏輯
+            list.sort((a, b) => {
+                if (sortBy === 'price-asc') {
+                    return a.best_price - b.best_price;
+                } else if (sortBy === 'discount') {
+                    return (b.diff_percent || 0) - (a.diff_percent || 0);
+                } else {
+                    // 預設 Cheap Score 優先
+                    if ((a.cheap_score === null) !== (b.cheap_score === null)) {
+                        return a.cheap_score === null ? 1 : -1;
+                    }
+                    return (b.cheap_score || 0) - (a.cheap_score || 0) || a.best_price - b.best_price;
+                }
+            });
+
+            const container = document.getElementById('routes-container');
+            const noData = document.getElementById('no-data');
+
+            if (list.length === 0) {
+                container.innerHTML = '';
+                noData.classList.remove('hidden');
+                return;
+            }
+
+            noData.classList.add('hidden');
+            container.innerHTML = list.map((r, index) => {
+                let badgeHtml = '';
+                if (index === 0 && !destFilter) {
+                    badgeHtml = `<span class="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded text-xs flex items-center gap-1"><i class="fa-solid fa-medal text-amber-500"></i> 🥇 金牌</span>`;
+                } else if (index === 1 && !destFilter) {
+                    badgeHtml = `<span class="bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded text-xs flex items-center gap-1"><i class="fa-solid fa-medal text-slate-400"></i> 🥈 銀牌</span>`;
+                } else if (index === 2 && !destFilter) {
+                    badgeHtml = `<span class="bg-amber-50 text-amber-900 font-bold px-2 py-0.5 rounded text-xs flex items-center gap-1"><i class="fa-solid fa-medal text-amber-700"></i> 🥉 銅牌</span>`;
+                }
+
+                const diffText = r.diff_percent !== null ? `<div class="text-xs text-emerald-600 font-medium mt-1"><i class="fa-solid fa-arrow-trend-down"></i> 比近期平均低 ${r.diff_percent}%</div>` : '';
+                const scoreText = r.cheap_score !== null ? `<span class="text-xs font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">🔥 Score ${r.cheap_score}</span>` : '';
+
+                return `
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-start gap-2 mb-2">
+                                <div class="flex items-center gap-2">
+                                    ${badgeHtml}
+                                    <h3 class="font-bold text-lg text-slate-900">${r.destination_cn} <span class="text-xs font-normal text-slate-400">(${r.destination})</span></h3>
+                                </div>
+                                ${scoreText}
+                            </div>
+                            <div class="text-xs text-slate-500 mb-3">${r.destination_en}</div>
+                            
+                            <div class="bg-slate-50 rounded-xl p-3 space-y-1.5 text-xs text-slate-600 mb-4 border border-slate-100">
+                                <div class="flex justify-between font-semibold text-slate-700">
+                                    <span>📅 ${r.best_departure_date} ~ ${r.best_return_date}</span>
+                                    <span>${r.best_stay_days}天直飛</span>
+                                </div>
+                                <div class="flex justify-between text-slate-500 pt-1 border-t border-slate-200/60">
+                                    <span>🏢 ${r.airline || '直飛航班'}</span>
+                                    <span>⏰ ${r.dep_time || '依航班'}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex items-baseline justify-between mb-3">
+                                <div>
+                                    <span class="text-2xl font-black text-indigo-600">NT$${r.best_price.toLocaleString()}</span>
+                                    <span class="text-xs text-slate-400 ml-1">來回</span>
+                                    ${diffText}
+                                </div>
+                            </div>
+                            ${r.link ? `<a href="${r.link}" target="_blank" class="block w-full text-center bg-slate-900 hover:bg-indigo-600 text-white font-medium py-2 rounded-xl text-xs transition shadow-xs"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i> 查看 Google 航班</a>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('filter-dest').addEventListener('change', filterAndRenderRoutes);
+        document.getElementById('sort-by').addEventListener('change', filterAndRenderRoutes);
+
+        loadData();
+    </script>
 </body>
 </html>
