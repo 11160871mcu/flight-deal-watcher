@@ -70,14 +70,49 @@ h1{
   border:1px solid var(--line);
   background:rgba(20,30,51,.95);
   border-radius:14px;
-  padding:18px;
+  padding:0;
   margin-bottom:20px;
+  overflow:hidden;
+}
+
+.filters-collapse{
+  width:100%;
+}
+
+.filters-collapse > summary{
+  list-style:none;
+}
+
+.filters-collapse > summary::-webkit-details-marker{
+  display:none;
 }
 
 .filters-title{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  padding:16px 18px;
   font-size:16px;
   font-weight:900;
-  margin-bottom:16px;
+  cursor:pointer;
+  user-select:none;
+}
+
+.filters-title::after{
+  content:"▾";
+  color:var(--muted);
+  font-size:16px;
+  transition:transform .2s ease;
+}
+
+.filters-collapse[open] > .filters-title::after{
+  transform:rotate(180deg);
+}
+
+.filters-body{
+  padding:0 18px 18px;
+  border-top:1px solid var(--line);
 }
 
 .filter-grid{
@@ -117,18 +152,52 @@ h1{
   overflow:hidden;
 }
 
-.multi-head{
+.multi-box > summary{
+  list-style:none;
+}
+
+.multi-box > summary::-webkit-details-marker{
+  display:none;
+}
+
+.multi-toggle{
+  min-height:46px;
   display:flex;
-  justify-content:space-between;
   align-items:center;
   gap:10px;
-  padding:11px 12px;
-  border-bottom:1px solid var(--line);
+  padding:10px 12px;
+  cursor:pointer;
+  user-select:none;
+}
+
+.multi-toggle::after{
+  content:"▾";
+  margin-left:auto;
+  color:var(--muted);
+  transition:transform .2s ease;
+}
+
+.multi-box[open] > .multi-toggle::after{
+  transform:rotate(180deg);
 }
 
 .multi-title{
   font-size:14px;
   font-weight:900;
+}
+
+.multi-status{
+  min-width:0;
+  margin-left:auto;
+  color:var(--muted);
+  font-size:12px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.multi-toggle::after{
+  margin-left:0;
 }
 
 .want .multi-title,
@@ -140,9 +209,29 @@ h1{
   color:var(--pink);
 }
 
+.multi-panel{
+  border-top:1px solid var(--line);
+}
+
+.multi-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  padding:9px 12px;
+  background:rgba(255,255,255,.02);
+  border-bottom:1px solid var(--line);
+}
+
+.multi-hint{
+  color:var(--muted);
+  font-size:11px;
+}
+
 .multi-actions{
   display:flex;
   gap:6px;
+  flex:0 0 auto;
 }
 
 .small{
@@ -161,7 +250,7 @@ h1{
 }
 
 .multi-options{
-  max-height:265px;
+  max-height:240px;
   overflow-y:auto;
   padding:8px;
 }
@@ -530,6 +619,27 @@ footer{
     flex:1;
   }
 
+  .filters-title{
+    padding:14px;
+  }
+
+  .filters-body{
+    padding:0 14px 14px;
+  }
+
+  .multi-toggle{
+    align-items:flex-start;
+  }
+
+  .multi-status{
+    max-width:46%;
+  }
+
+  .multi-head{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
   .action-row{
     flex-direction:column;
   }
@@ -564,12 +674,15 @@ footer{
 
   <section class="filters">
 
-    <div class="filters-title">
-      🔎 設定篩選條件
-    </div>
+    <details class="filters-collapse" open>
 
+      <summary class="filters-title">
+        🔎 設定篩選條件
+      </summary>
 
-    <div class="filter-grid">
+      <div class="filters-body">
+
+        <div class="filter-grid">
 
       <div class="field">
 
@@ -683,43 +796,29 @@ footer{
           目的地
         </label>
 
-        <div class="multi-box dest">
+        <details class="multi-box dest">
 
-          <div class="multi-head">
+          <summary class="multi-toggle">
+            <span class="multi-title">✓ 目的地</span>
+            <span class="multi-status" id="destStatus">載入中…</span>
+          </summary>
 
-            <div class="multi-title">
-              ✓ 目的地（可複選，預設全選）
+          <div class="multi-panel">
+
+            <div class="multi-head">
+              <span class="multi-hint">可複選，預設全選</span>
+
+              <div class="multi-actions">
+                <button class="small" id="destAll" type="button">全選</button>
+                <button class="small" id="destNone" type="button">全部取消</button>
+              </div>
             </div>
 
-            <div class="multi-actions">
-
-              <button
-                class="small"
-                id="destAll"
-                type="button"
-              >
-                全選
-              </button>
-
-              <button
-                class="small"
-                id="destNone"
-                type="button"
-              >
-                全部取消
-              </button>
-
-            </div>
+            <div id="destinations" class="multi-options"></div>
 
           </div>
 
-          <div
-            id="destinations"
-            class="multi-options"
-          >
-          </div>
-
-        </div>
+        </details>
 
       </div>
 
@@ -734,43 +833,29 @@ footer{
           想要的航空公司
         </label>
 
-        <div class="multi-box want">
+        <details class="multi-box want">
 
-          <div class="multi-head">
+          <summary class="multi-toggle">
+            <span class="multi-title">✓ 想要的航空公司</span>
+            <span class="multi-status" id="includeStatus">載入中…</span>
+          </summary>
 
-            <div class="multi-title">
-              ✓ 想要的航空公司（可複選，預設全選）
+          <div class="multi-panel">
+
+            <div class="multi-head">
+              <span class="multi-hint">可複選，預設全選</span>
+
+              <div class="multi-actions">
+                <button class="small" id="includeAll" type="button">全選</button>
+                <button class="small" id="includeNone" type="button">全部取消</button>
+              </div>
             </div>
 
-            <div class="multi-actions">
-
-              <button
-                class="small"
-                id="includeAll"
-                type="button"
-              >
-                全選
-              </button>
-
-              <button
-                class="small"
-                id="includeNone"
-                type="button"
-              >
-                全部取消
-              </button>
-
-            </div>
+            <div id="includeAirlines" class="multi-options"></div>
 
           </div>
 
-          <div
-            id="includeAirlines"
-            class="multi-options"
-          >
-          </div>
-
-        </div>
+        </details>
 
       </div>
 
@@ -785,43 +870,29 @@ footer{
           不要的航空公司
         </label>
 
-        <div class="multi-box exclude">
+        <details class="multi-box exclude">
 
-          <div class="multi-head">
+          <summary class="multi-toggle">
+            <span class="multi-title">✕ 排除航空公司</span>
+            <span class="multi-status" id="excludeStatus">未排除</span>
+          </summary>
 
-            <div class="multi-title">
-              ✕ 排除航空公司（可複選，預設不選）
+          <div class="multi-panel">
+
+            <div class="multi-head">
+              <span class="multi-hint">可複選，預設不選</span>
+
+              <div class="multi-actions">
+                <button class="small" id="excludeAll" type="button">全選</button>
+                <button class="small" id="excludeNone" type="button">全部取消</button>
+              </div>
             </div>
 
-            <div class="multi-actions">
-
-              <button
-                class="small"
-                id="excludeAll"
-                type="button"
-              >
-                全選
-              </button>
-
-              <button
-                class="small"
-                id="excludeNone"
-                type="button"
-              >
-                全部取消
-              </button>
-
-            </div>
+            <div id="excludeAirlines" class="multi-options"></div>
 
           </div>
 
-          <div
-            id="excludeAirlines"
-            class="multi-options"
-          >
-          </div>
-
-        </div>
+        </details>
 
       </div>
 
@@ -894,23 +965,27 @@ footer{
     </div>
 
 
-    <div class="summary">
+        <div class="summary">
 
-      <span id="resultCount">
-        —
-      </span>
+          <span id="resultCount">
+            —
+          </span>
 
-      <span
-        id="activeSummary"
-        class="active"
-      >
-      </span>
+          <span
+            id="activeSummary"
+            class="active"
+          >
+          </span>
 
-      <span id="progress">
-        —
-      </span>
+          <span id="progress">
+            —
+          </span>
 
-    </div>
+        </div>
+
+      </div>
+
+    </details>
 
   </section>
 
@@ -1507,6 +1582,72 @@ function setAll(
 
       input.checked=
         checked;
+    }
+  );
+
+  updateMultiStatus();
+}
+
+
+function updateMultiStatus(){
+
+  const groups=[
+    {
+      listId:"destinations",
+      statusId:"destStatus",
+      empty:"未選目的地",
+      allPrefix:"全部",
+      selectedPrefix:"已選"
+    },
+    {
+      listId:"includeAirlines",
+      statusId:"includeStatus",
+      empty:"未選航空公司",
+      allPrefix:"全部",
+      selectedPrefix:"已選"
+    },
+    {
+      listId:"excludeAirlines",
+      statusId:"excludeStatus",
+      empty:"未排除",
+      allPrefix:"全部排除",
+      selectedPrefix:"已排除"
+    }
+  ];
+
+  groups.forEach(
+    group=>{
+
+      const list=$(group.listId);
+      const status=$(group.statusId);
+
+      if(!list || !status){
+        return;
+      }
+
+      const total=
+        list.querySelectorAll(
+          'input[type="checkbox"]'
+        ).length;
+
+      const count=
+        list.querySelectorAll(
+          'input[type="checkbox"]:checked'
+        ).length;
+
+      if(!count){
+        status.textContent=group.empty;
+        return;
+      }
+
+      if(count===total && total){
+        status.textContent=
+          `${group.allPrefix} ${total} 個`;
+        return;
+      }
+
+      status.textContent=
+        `${group.selectedPrefix} ${count} / ${total}`;
     }
   );
 }
@@ -2954,6 +3095,24 @@ async function load(){
     bindMutualExclusion();
 
 
+    [
+      "destinations",
+      "includeAirlines",
+      "excludeAirlines"
+    ].forEach(
+      id=>{
+
+        $(id).addEventListener(
+          "change",
+          updateMultiStatus
+        );
+      }
+    );
+
+
+    updateMultiStatus();
+
+
     /*
       DESTINATION BUTTONS
     */
@@ -3183,5 +3342,6 @@ load();
 
 </script>
 
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"1c1c7799c54e46349cc23295b5e08299","spa":2}' crossorigin="anonymous"></script>
 </body>
 </html>
