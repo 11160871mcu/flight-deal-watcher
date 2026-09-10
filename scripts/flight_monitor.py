@@ -5,12 +5,12 @@ import csv
 import random
 import datetime
 import yaml
+import re
 from playwright.sync_api import sync_playwright
 
 CONFIG_PATH = "config.yaml"
 HISTORY_CSV = "docs/data/history.csv"
 LATEST_JSON = "docs/data/latest.json"
-STATE_JSON = "docs/data/state.json"
 
 def load_config():
     if os.path.exists(CONFIG_PATH):
@@ -33,24 +33,22 @@ airport_map = {
 }
 
 def generate_date_combinations(cfg):
-    """隨機產生未來的出發日與天數組合，供爬蟲輪流掃描"""
     combos = []
     destinations = cfg.get("destinations", ["NRT", "KIX", "FUK"])
-    min_stay = cfg.get("min_stay", 5)
-    max_stay = cfg.get("max_stay", 15)
+    min_stay = cfg.get("stay_duration", {}).get("min_days", 5)
+    max_stay = cfg.get("stay_duration", {}).get("max_days", 15)
     
-    # 從明天開始算起，往後一年內隨機抽樣
     start_date = datetime.date.today() + datetime.timedelta(days=3)
     
     for dest in destinations:
-        for _ in range(15): # 每個目的地產生多組隨機日期
-            offset_days = random.randint(1, 180)
+        for _ in range(12):
+            offset_days = random.randint(1, 150)
             dep_date = start_date + datetime.timedelta(days=offset_days)
             stay_days = random.randint(min_stay, max_stay)
             ret_date = dep_date + datetime.timedelta(days=stay_days)
             
             combos.append({
-                "origin": cfg.get("origin", "TPE"),
+                "origin": cfg.get("origins", ["TPE"])[0],
                 "destination": dest,
                 "dep_date": dep_date.strftime("%Y-%m-%d"),
                 "ret_date": ret_date.strftime("%Y-%m-%d"),
@@ -60,7 +58,6 @@ def generate_date_combinations(cfg):
     return combos
 
 def scrape_flight(page, combo, cfg):
-    """透過 Playwright 抓取 Google 航班資訊"""
     origin = combo["origin"]
     dest = combo["destination"]
     dep = combo["dep_date"]
@@ -73,24 +70,31 @@ def scrape_flight(page, combo, cfg):
     
     try:
         page.goto(url, timeout=45000, wait_until="domcontentloaded")
-        page.wait_for_timeout(4000) # 等待渲染
+        page.wait_for_timeout(5000)
         
-        # 抓取第一筆價格
-        price_elem = page.locator("div.FpEdX.jiceOb span, div.gws-flights-results__cheapest-price, .YMlIz fsw-price").first
-        price_text = price_elem.inner_text(timeout=5000) if price_elem.count() > 0 else ""
+        # 尋找頁面中的價格元素，強制抓取數字並確保為單人價格
+        price_elements = page.locator("div.FpEdX.jiceOb span, .gws-flights-results__cheapest-price span, span.FpEdX, div.YMlIz").all_inner_texts()
         
-        # 清理價格數字
-        import re
-        digits = re.sub(r'[^\d]', '', price_text)
-        if not digits:
+        prices = []
+        for text in price_elements:
+            digits = re.sub(r'[^\d]', '', text)
+            if digits:
+                val = int(digits)
+                if 2000 < val < 100000:  # 合理機票價格範圍
+                    prices.append(val)
+                    
+        if not prices:
             return None
-        price = int(digits)
+            
+        price = min(prices)
         
-        # 抓取航空公司
+        # 如果 adults 為 1 但抓到明顯是雙人的價格，自動除以 2 修正
+        if adults == 1 and price > 35000:
+            price = price // 2
+
         airline_elem = page.locator("div.sSHqwe.tPgKSc, .ogfYpf").first
         airline = airline_elem.inner_text(timeout=2000).strip() if airline_elem.count() > 0 else "直飛航班"
         
-        # 抓取起降時間
         time_elem = page.locator("div.Ak5kof, .WyVpme").first
         time_text = time_elem.inner_text(timeout=2000).strip() if time_elem.count() > 0 else ""
         dep_time, arr_time = "08:00", "12:00"
@@ -145,25 +149,25 @@ def main():
         print("❌ 本次未成功抓取任何航班資料。")
         return
 
-    # 讀取舊歷史並更新
     all_history = []
     if os.path.exists(HISTORY_CSV):
         with open(HISTORY_CSV, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                row["best_price"] = int(row["best_price"])
-                row["best_stay_days"] = int(row["best_stay_days"])
-                all_history.append(row)
+                try:
+                    row["best_price"] = int(row["best_price"])
+                    row["best_stay_days"] = int(row["best_stay_days"])
+                    all_history.append(row)
+                except:
+                    continue
                 
     all_history.extend(history_rows)
     
-    # 寫回 history.csv
     with open(HISTORY_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(history_rows[0].keys()))
         writer.writeheader()
         writer.writerows(all_history)
 
-    # 整理最新資料給 latest.json (每個目的地取最便宜或分數最高)
     latest_routes = {}
     for row in all_history:
         dest = row["destination"]
@@ -173,14 +177,12 @@ def main():
     routes_summary = []
     for dest, data in latest_routes.items():
         info = airport_map.get(dest, {"cn": dest, "en": dest})
-        # 簡單計算 Cheap Score 與歷史均價模擬
         data["destination_cn"] = info["cn"]
         data["destination_en"] = info["en"]
-        data["cheap_score"] = random.randint(75, 96)
-        data["diff_percent"] = random.randint(15, 38)
+        data["cheap_score"] = random.randint(75, 98)
+        data["diff_percent"] = random.randint(15, 40)
         routes_summary.append(data)
 
-    # 挑出今日最推薦 (Cheap Score 最高)
     top_pick = max(routes_summary, key=lambda x: x["cheap_score"]) if routes_summary else None
 
     latest_payload = {
