@@ -2,34 +2,34 @@
   "version": 8,
   "signature": "d270bb3fd1ac67c9808a",
   "urgent_cursor": {
-    "TPE|NRT": 65,
-    "TPE|HND": 65,
-    "TPE|KIX": 65,
-    "TPE|FUK": 60,
-    "TPE|CTS": 60,
-    "TPE|OKA": 60,
-    "TPE|ICN": 60,
-    "TPE|PUS": 60
+    "TPE|NRT": 125,
+    "TPE|HND": 125,
+    "TPE|KIX": 125,
+    "TPE|FUK": 120,
+    "TPE|CTS": 120,
+    "TPE|OKA": 120,
+    "TPE|ICN": 120,
+    "TPE|PUS": 120
   },
   "hot_cursor": {
-    "TPE|NRT": 77,
-    "TPE|HND": 72,
-    "TPE|KIX": 72,
-    "TPE|FUK": 72,
-    "TPE|CTS": 72,
-    "TPE|OKA": 72,
-    "TPE|ICN": 72,
-    "TPE|PUS": 72
+    "TPE|NRT": 115,
+    "TPE|HND": 110,
+    "TPE|KIX": 110,
+    "TPE|FUK": 110,
+    "TPE|CTS": 109,
+    "TPE|OKA": 109,
+    "TPE|ICN": 109,
+    "TPE|PUS": 109
   },
   "explore_cursor": {
-    "TPE|NRT": 38,
-    "TPE|HND": 33,
-    "TPE|KIX": 33,
-    "TPE|FUK": 33,
-    "TPE|CTS": 33,
-    "TPE|OKA": 33,
-    "TPE|ICN": 33,
-    "TPE|PUS": 33
+    "TPE|NRT": 53,
+    "TPE|HND": 48,
+    "TPE|KIX": 48,
+    "TPE|FUK": 48,
+    "TPE|CTS": 48,
+    "TPE|OKA": 48,
+    "TPE|ICN": 48,
+    "TPE|PUS": 48
   },
   "last_price_map": {
     "TPE|NRT|2026-09-16|2026-09-27|11": 8893,
@@ -53,5 +53,5 @@
     "TPE|NRT|2026-09-30|2026-10-05|5": 8629,
     "TPE|NRT|2026-10-18|2026-10-25|7": 8230
   },
-  "total_attempts": 1025
+  "total_attempts": 1925
 }
