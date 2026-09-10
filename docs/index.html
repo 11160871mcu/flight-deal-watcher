@@ -2196,7 +2196,7 @@ function fillControls(
 
     [
       ...new Set(
-        (data.results||[])
+        (data.deals||[])
           .map(
             deal=>
               deal.destination
@@ -2229,7 +2229,7 @@ function fillControls(
   const airlineSet=
     new Set();
 
-  (data.results||[])
+  (data.deals||[])
     .forEach(
       deal=>{
 
@@ -2464,7 +2464,7 @@ function applyFilters(){
     getFilters();
 
   let rows=[
-    ...(DATA.results||[])
+    ...(DATA.deals||[])
   ];
 
 
@@ -2617,61 +2617,35 @@ function groupByPrice(rows){
 
     rows.forEach(deal=>{
 
-        const options =
-            Array.isArray(deal.flight_options)
-            ?
-            deal.flight_options
-            :
-            [];
-
-        // 沒有航班明細，保留原資料
-        if(!options.length){
-
+        if (!deal.flight_options || deal.flight_options.length === 0) {
             result.push(deal);
             return;
-
         }
 
-        const groups={};
+        const map={};
 
-        options.forEach(option=>{
+        deal.flight_options.forEach(option=>{
 
-            const price =
-                Number(
-                    option.price
-                    ||
-                    deal.price
-                );
+            const key = option.price || deal.price;
 
-            if(!groups[price]){
-
-                groups[price]={
+            if(!map[key]){
+                map[key]={
                     ...deal,
-
-                    price:price,
-
+                    price:key,
                     flight_options:[]
                 };
-
             }
 
-            groups[price]
-                .flight_options
-                .push(option);
+            map[key].flight_options.push(option);
 
         });
 
-        Object.values(groups)
-            .forEach(item=>{
-
-                result.push(item);
-
-            });
+        Object.values(map)
+            .forEach(x=>result.push(x));
 
     });
 
     return result;
-
 }
 
 
@@ -2926,13 +2900,8 @@ function filterSummary(
 
 function renderCurrent(){
 
-  let rows =
-    sortRows(
-      CURRENT_RESULTS
-    );
-
-  rows =
-    groupByPrice(rows);
+  let rows = groupByPrice(CURRENT_RESULTS);
+  rows = sortRows(rows);
 
   $("resultCount")
     .textContent=
@@ -3210,7 +3179,7 @@ async function load(){
 
     if(
       !Array.isArray(
-        DATA.results
+        DATA.deals
       )
     ){
 
