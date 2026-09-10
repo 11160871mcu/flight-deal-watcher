@@ -1911,6 +1911,8 @@ function optionHtml(
             option.airline
           )
         )}
+        
+        ${option.price ? `<span style="float:right; color:var(--gold); font-weight:900;">${money(option.price)}</span>` : ''}
 
       </div>
 
@@ -2093,7 +2095,7 @@ function cardHtml(
 
           `
           <span class="badge blue">
-            ✈ ${options.length} 個同價選擇
+            ✈ ${options.length} 個航班選擇
           </span>
           `
 
@@ -2194,7 +2196,7 @@ function fillControls(
 
     [
       ...new Set(
-        (data.deals||[])
+        (data.results||[])
           .map(
             deal=>
               deal.destination
@@ -2227,7 +2229,7 @@ function fillControls(
   const airlineSet=
     new Set();
 
-  (data.deals||[])
+  (data.results||[])
     .forEach(
       deal=>{
 
@@ -2462,7 +2464,7 @@ function applyFilters(){
     getFilters();
 
   let rows=[
-    ...(DATA.deals||[])
+    ...(DATA.results||[])
   ];
 
 
@@ -3137,12 +3139,12 @@ async function load(){
 
     if(
       !Array.isArray(
-        DATA.deals
+        DATA.results
       )
     ){
 
       throw new Error(
-        "latest.json 不是新版 deals 格式"
+        "latest.json 格式錯誤"
       );
     }
 
