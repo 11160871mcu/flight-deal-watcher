@@ -1,28 +1,36 @@
 {
-  "version": 5,
-  "grid_signature": "2a172851f8b7277c220a",
-  "grid_start_date": "2026-09-10",
-  "near_cursor_by_route": {
-    "TPE|NRT": 12,
-    "TPE|HND": 12,
-    "TPE|KIX": 12,
-    "TPE|FUK": 12,
-    "TPE|CTS": 12,
-    "TPE|OKA": 12,
-    "TPE|ICN": 12,
-    "TPE|PUS": 12
+  "version": 8,
+  "signature": "d270bb3fd1ac67c9808a",
+  "urgent_cursor": {
+    "TPE|NRT": 60,
+    "TPE|HND": 60,
+    "TPE|KIX": 60,
+    "TPE|FUK": 60,
+    "TPE|CTS": 60,
+    "TPE|OKA": 60,
+    "TPE|ICN": 60,
+    "TPE|PUS": 60
   },
-  "annual_cursor_by_route": {
-    "TPE|NRT": 36,
-    "TPE|HND": 36,
-    "TPE|KIX": 36,
-    "TPE|FUK": 36,
-    "TPE|CTS": 36,
-    "TPE|OKA": 36,
-    "TPE|ICN": 36,
-    "TPE|PUS": 36
+  "hot_cursor": {
+    "TPE|NRT": 72,
+    "TPE|HND": 72,
+    "TPE|KIX": 72,
+    "TPE|FUK": 72,
+    "TPE|CTS": 72,
+    "TPE|OKA": 72,
+    "TPE|ICN": 72,
+    "TPE|PUS": 72
   },
-  "near_rotation": 0,
-  "annual_rotation": 0,
-  "total_attempts": 288
+  "explore_cursor": {
+    "TPE|NRT": 33,
+    "TPE|HND": 33,
+    "TPE|KIX": 33,
+    "TPE|FUK": 33,
+    "TPE|CTS": 33,
+    "TPE|OKA": 33,
+    "TPE|ICN": 33,
+    "TPE|PUS": 33
+  },
+  "last_price_map": {},
+  "total_attempts": 1000
 }
