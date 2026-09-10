@@ -4,402 +4,182 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>✈️ 機票特價排行榜 · TWD</title>
-
-<style type="text/css">@font-face {font-family:'Space Mono';font-style:normal;font-weight:400;src:url(/cf-fonts/s/space-mono/5.2.9/latin-ext/400/normal.woff2);unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;font-display:swap;}@font-face {font-family:'Space Mono';font-style:normal;font-weight:400;src:url(/cf-fonts/s/space-mono/5.2.9/vietnamese/400/normal.woff2);unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;font-display:swap;}@font-face {font-family:'Space Mono';font-style:normal;font-weight:400;src:url(/cf-fonts/s/space-mono/5.2.9/latin/400/normal.woff2);unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;font-display:swap;}@font-face {font-family:'Space Mono';font-style:normal;font-weight:700;src:url(/cf-fonts/s/space-mono/5.2.9/latin-ext/700/normal.woff2);unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;font-display:swap;}@font-face {font-family:'Space Mono';font-style:normal;font-weight:700;src:url(/cf-fonts/s/space-mono/5.2.9/latin/700/normal.woff2);unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;font-display:swap;}@font-face {font-family:'Space Mono';font-style:normal;font-weight:700;src:url(/cf-fonts/s/space-mono/5.2.9/vietnamese/700/normal.woff2);unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:400;src:url(/cf-fonts/v/inter/5.2.8/greek-ext/wght/normal.woff2);unicode-range:U+1F00-1FFF;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:400;src:url(/cf-fonts/v/inter/5.2.8/greek/wght/normal.woff2);unicode-range:U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:400;src:url(/cf-fonts/v/inter/5.2.8/latin/wght/normal.woff2);unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:400;src:url(/cf-fonts/v/inter/5.2.8/latin-ext/wght/normal.woff2);unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:400;src:url(/cf-fonts/v/inter/5.2.8/cyrillic-ext/wght/normal.woff2);unicode-range:U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:400;src:url(/cf-fonts/v/inter/5.2.8/vietnamese/wght/normal.woff2);unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:400;src:url(/cf-fonts/v/inter/5.2.8/cyrillic/wght/normal.woff2);unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:500;src:url(/cf-fonts/v/inter/5.2.8/latin/wght/normal.woff2);unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:500;src:url(/cf-fonts/v/inter/5.2.8/latin-ext/wght/normal.woff2);unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:500;src:url(/cf-fonts/v/inter/5.2.8/greek/wght/normal.woff2);unicode-range:U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:500;src:url(/cf-fonts/v/inter/5.2.8/vietnamese/wght/normal.woff2);unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:500;src:url(/cf-fonts/v/inter/5.2.8/cyrillic/wght/normal.woff2);unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:500;src:url(/cf-fonts/v/inter/5.2.8/cyrillic-ext/wght/normal.woff2);unicode-range:U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:500;src:url(/cf-fonts/v/inter/5.2.8/greek-ext/wght/normal.woff2);unicode-range:U+1F00-1FFF;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:600;src:url(/cf-fonts/v/inter/5.2.8/latin-ext/wght/normal.woff2);unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:600;src:url(/cf-fonts/v/inter/5.2.8/latin/wght/normal.woff2);unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:600;src:url(/cf-fonts/v/inter/5.2.8/vietnamese/wght/normal.woff2);unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:600;src:url(/cf-fonts/v/inter/5.2.8/cyrillic-ext/wght/normal.woff2);unicode-range:U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:600;src:url(/cf-fonts/v/inter/5.2.8/greek-ext/wght/normal.woff2);unicode-range:U+1F00-1FFF;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:600;src:url(/cf-fonts/v/inter/5.2.8/greek/wght/normal.woff2);unicode-range:U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:600;src:url(/cf-fonts/v/inter/5.2.8/cyrillic/wght/normal.woff2);unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:700;src:url(/cf-fonts/v/inter/5.2.8/greek/wght/normal.woff2);unicode-range:U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:700;src:url(/cf-fonts/v/inter/5.2.8/latin/wght/normal.woff2);unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:700;src:url(/cf-fonts/v/inter/5.2.8/vietnamese/wght/normal.woff2);unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:700;src:url(/cf-fonts/v/inter/5.2.8/latin-ext/wght/normal.woff2);unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:700;src:url(/cf-fonts/v/inter/5.2.8/cyrillic-ext/wght/normal.woff2);unicode-range:U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:700;src:url(/cf-fonts/v/inter/5.2.8/cyrillic/wght/normal.woff2);unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:700;src:url(/cf-fonts/v/inter/5.2.8/greek-ext/wght/normal.woff2);unicode-range:U+1F00-1FFF;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:800;src:url(/cf-fonts/v/inter/5.2.8/cyrillic/wght/normal.woff2);unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:800;src:url(/cf-fonts/v/inter/5.2.8/greek-ext/wght/normal.woff2);unicode-range:U+1F00-1FFF;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:800;src:url(/cf-fonts/v/inter/5.2.8/greek/wght/normal.woff2);unicode-range:U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:800;src:url(/cf-fonts/v/inter/5.2.8/latin-ext/wght/normal.woff2);unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:800;src:url(/cf-fonts/v/inter/5.2.8/vietnamese/wght/normal.woff2);unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:800;src:url(/cf-fonts/v/inter/5.2.8/cyrillic-ext/wght/normal.woff2);unicode-range:U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;font-display:swap;}@font-face {font-family:'Inter';font-style:normal;font-weight:800;src:url(/cf-fonts/v/inter/5.2.8/latin/wght/normal.woff2);unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;font-display:swap;}</style>
 <style>
-  :root{
-    --bg:#0b1220; --panel:#141e33; --panel2:#18243c; --line:#2b3853;
-    --text:#f4f7fb; --muted:#8e9bb3; --gold:#ffc94a; --teal:#58dfc1;
-    --pink:#ff8cb5; --blue:#7db1ff;
-  }
-  *{box-sizing:border-box}
-  body{
-    margin:0;
-    background:radial-gradient(circle at top,#16233d 0,#0b1220 42%);
-    color:var(--text);
-    font-family:Inter,"Noto Sans TC","Microsoft JhengHei",sans-serif;
-    line-height:1.5
-  }
-  .wrap{max-width:1180px;margin:0 auto;padding:34px 22px 80px}
-  header{margin-bottom:24px}
-  h1{font-family:"Space Mono",monospace;font-size:clamp(26px,4vw,36px);margin:0 0 7px}
-  .sub{margin:0;color:var(--muted);font-size:14px}
-
-  .hero{
-    border:1px solid #34445f;
-    background:linear-gradient(150deg,#1c2946,#121b2f 72%);
-    border-radius:14px;
-    padding:25px 28px;
-    margin:0 0 24px;
-    box-shadow:0 16px 45px rgba(0,0,0,.2)
-  }
-  .eyebrow{color:var(--teal);font-size:13px;font-weight:800;margin-bottom:6px}
-  .hero-route{font-family:"Space Mono",monospace;color:var(--gold);font-size:clamp(24px,4.4vw,39px);line-height:1.25}
-  .hero-airport{margin-top:6px;color:#b6c2d7;font-size:12px}
-  .hero-price{font-family:"Space Mono",monospace;font-size:29px;font-weight:800;margin-top:12px}
-  .hero-dates{color:#aebad0;margin-top:5px;font-size:14px}
-  .hero-flight{
-    margin-top:16px;
-    border:1px solid var(--line);
-    background:rgba(11,18,32,.42);
-    border-radius:10px;
-    padding:14px 16px
-  }
-
-  .badges{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px;align-items:center}
-  .badge{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:6px;background:rgba(88,223,193,.13);color:var(--teal);font-size:12px;font-weight:800}
-  .badge.gold{background:rgba(255,201,74,.13);color:var(--gold)}
-  .badge.pink{background:rgba(255,140,181,.11);color:#ff9ec4}
-  .button{margin-left:auto;display:inline-flex;align-items:center;padding:9px 14px;border-radius:6px;background:var(--teal);color:#07121e;text-decoration:none;font-weight:800;font-size:12px}
-
-  .section-title{display:flex;justify-content:space-between;align-items:end;margin:24px 2px 10px;gap:12px}
-  .section-title h2{margin:0;font-size:17px}
-  .section-title span{color:var(--muted);font-size:12px;text-align:right}
-
-  .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-  .card{
-    position:relative;
-    border:1px solid var(--line);
-    background:rgba(20,30,51,.84);
-    border-radius:12px;
-    padding:17px;
-    min-height:310px;
-    display:flex;
-    flex-direction:column;
-    gap:12px
-  }
-  .card:hover{border-color:#415575;transform:translateY(-1px)}
-  .rank{font-size:13px;font-weight:800;color:var(--muted)}
-  .route{font-size:16px;font-weight:800}
-  .route .arrow{color:var(--gold);padding:0 4px}
-  .airport-en{font-size:11px;color:var(--muted);margin-top:3px}
-  .price{font-family:"Space Mono",monospace;font-size:22px;font-weight:800;color:var(--gold)}
-  .mini{font-size:11px;color:#cbd4e3}
-  .deal-row{display:flex;flex-wrap:wrap;gap:7px}
-
-  /* 航班資訊改成卡片內最容易閱讀的區塊 */
-  .flight-box{
-    border:1px solid var(--line);
-    background:rgba(11,18,32,.46);
-    border-radius:10px;
-    padding:12px 13px
-  }
-  .flight-box-title{
-    color:var(--blue);
-    font-size:11px;
-    font-weight:800;
-    letter-spacing:.06em;
-    margin-bottom:7px
-  }
-  .airline-name{
-    font-size:14px;
-    font-weight:800;
-    color:#f4f7fb;
-    margin-bottom:9px;
-    line-height:1.4
-  }
-  .flight-date{
-    font-size:12px;
-    color:#aebad0;
-    margin-bottom:5px
-  }
-  .time-row{
-    display:grid;
-    grid-template-columns:1fr auto 1fr;
-    align-items:center;
-    gap:10px
-  }
-  .time-col{min-width:0}
-  .time-label{display:block;color:var(--muted);font-size:10px;margin-bottom:1px}
-  .time-value{
-    display:block;
-    font-family:"Space Mono",monospace;
-    font-size:20px;
-    font-weight:800;
-    color:#fff;
-    white-space:nowrap
-  }
-  .time-arrow{color:var(--gold);font-size:18px;font-weight:800}
-  .flight-meta{font-size:11px;color:var(--muted);margin-top:8px}
-
-  .return-line{
-    margin-top:9px;
-    padding-top:9px;
-    border-top:1px solid rgba(43,56,83,.78);
-    font-size:12px;
-    color:#c8d2e2
-  }
-  .return-line strong{color:#fff}
-
-  .footer-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto}
-  .link{display:inline-flex;padding:7px 10px;border-radius:6px;background:#21304b;color:#cfe0ff;text-decoration:none;font-size:11px;font-weight:800}
-  .stay{font-size:11px;color:var(--muted)}
-  .empty{padding:30px;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
-  footer{margin-top:28px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap}
-  footer a{color:var(--teal);text-decoration:none}
-
-  @media(max-width:900px){
-    .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  }
-  @media(max-width:650px){
-    .wrap{padding:24px 14px 60px}
-    .hero{padding:20px}
-    .grid{grid-template-columns:1fr}
-    .button{margin-left:0}
-    .hero-route{font-size:26px}
-    .section-title{align-items:flex-start;flex-direction:column}
-    .section-title span{text-align:left}
-  }
+:root{
+  --bg:#0b1220;--panel:#141e33;--panel2:#101a2e;--line:#2b3853;
+  --text:#f4f7fb;--muted:#8e9bb3;--gold:#ffc94a;--teal:#58dfc1;
+  --pink:#ff8cb5;--blue:#7db1ff
+}
+*{box-sizing:border-box}
+body{margin:0;background:#0b1220;color:var(--text);font-family:Arial,"Microsoft JhengHei",sans-serif}
+.wrap{max-width:1260px;margin:auto;padding:28px 18px 70px}
+h1{margin:0 0 6px;font-size:30px}.sub{color:var(--muted);font-size:14px}
+.section-title{display:flex;justify-content:space-between;gap:15px;align-items:end;margin:26px 0 12px}
+.section-title h2{margin:0;font-size:18px}.section-title span{color:var(--muted);font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.card{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:13px}
+.rank{font-size:13px;color:var(--muted);font-weight:700}
+.route{font-size:18px;font-weight:800}.arrow{color:var(--gold)}
+.airport-en{font-size:11px;color:var(--muted);margin-top:4px}
+.price{font-size:25px;font-weight:900;color:var(--gold)}
+.mini{font-size:11px;color:#cbd4e3}
+.badges{display:flex;gap:8px;flex-wrap:wrap}
+.badge{padding:7px 10px;border-radius:7px;background:rgba(88,223,193,.13);color:var(--teal);font-size:12px;font-weight:800}
+.badge.pink{background:rgba(255,140,181,.12);color:#ff9ec4}
+.badge.gold{background:rgba(255,201,74,.12);color:var(--gold)}
+.options{display:flex;flex-direction:column;gap:9px}
+.options-title{font-size:12px;color:var(--blue);font-weight:800;margin-top:2px}
+.option{border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:12px}
+.option-airline{font-size:14px;font-weight:800;margin-bottom:8px}
+.time-row{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+.time-label{font-size:10px;color:var(--muted);display:block;margin-bottom:2px}
+.time{font-size:20px;font-weight:900;font-family:monospace}
+.time-arrow{color:var(--gold);font-size:18px;font-weight:900}
+.meta{font-size:11px;color:var(--muted);margin-top:7px}
+.return{border-top:1px solid var(--line);margin-top:9px;padding-top:8px;font-size:12px;color:#c8d2e2}
+.footer-row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:auto}
+.link{background:#21304b;color:#dbe7ff;text-decoration:none;padding:8px 11px;border-radius:7px;font-size:12px;font-weight:800}
+.empty{padding:28px;border:1px dashed var(--line);border-radius:10px;color:var(--muted)}
+footer{margin-top:25px;color:var(--muted);font-size:12px}
+@media(max-width:950px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:650px){.grid{grid-template-columns:1fr}.section-title{align-items:flex-start;flex-direction:column}}
 </style>
 </head>
-
 <body>
 <div class="wrap">
-  <header>
-    <h1>✈️ 直飛機票特價排行榜</h1>
-    <p class="sub">TPE 桃園出發 · 經濟艙 1 大人 · 僅直飛 · 價格統一顯示新台幣（來回總價）</p>
-  </header>
-
-  <section id="hero" class="hero" style="display:none">
-    <div class="eyebrow">🔥 目前相對優惠推薦</div>
-    <div id="hero-route" class="hero-route">—</div>
-    <div id="hero-airport" class="hero-airport">—</div>
-    <div id="hero-price" class="hero-price">—</div>
-    <div id="hero-dates" class="hero-dates">—</div>
-    <div id="hero-flight" class="hero-flight"></div>
-    <div id="hero-badges" class="badges"></div>
-  </section>
+  <h1>✈️ 直飛機票特價排行榜</h1>
+  <div class="sub">TPE 桃園出發 · 經濟艙 1 大人 · 僅直飛 · 新台幣來回總價</div>
 
   <div class="section-title">
     <h2>📊 目前已掃描到的優惠航班</h2>
-    <span id="window-note">—</span>
+    <span id="progress">—</span>
   </div>
 
-  <div id="empty" class="empty">還沒有可顯示的航班資料，等待排程更新 latest.json。</div>
-  <section id="grid" class="grid" style="display:none"></section>
+  <div id="empty" class="empty">尚無可顯示資料</div>
+  <div id="grid" class="grid" style="display:none"></div>
 
-  <footer>
-    <div id="updated-at">—</div>
-    <div>原始資料：<a href="./data/latest.json">latest.json</a> · <a href="./data/history.csv">history.csv</a></div>
-  </footer>
+  <footer id="updated">—</footer>
 </div>
 
 <script>
-const AIRPORTS = {
-  TPE: { cn: "台北桃園", en: "Taoyuan Intl" },
-  NRT: { cn: "東京成田", en: "Narita" },
-  HND: { cn: "東京羽田", en: "Haneda" },
-  KIX: { cn: "大阪關西", en: "Kansai" },
-  FUK: { cn: "福岡", en: "Fukuoka" },
-  CTS: { cn: "札幌新千歲", en: "New Chitose" },
-  OKA: { cn: "沖繩那霸", en: "Naha" },
-  ICN: { cn: "首爾仁川", en: "Incheon" },
-  PUS: { cn: "釜山金海", en: "Gimhae" }
+const AIRPORTS={
+  TPE:["台北桃園","Taoyuan Intl"],NRT:["東京成田","Narita"],HND:["東京羽田","Haneda"],
+  KIX:["大阪關西","Kansai"],FUK:["福岡","Fukuoka"],CTS:["札幌新千歲","New Chitose"],
+  OKA:["沖繩那霸","Naha"],ICN:["首爾仁川","Incheon"],PUS:["釜山金海","Gimhae"]
 };
 
-/* 常見台日韓航線航空公司中英文對照。
-   如果未列入表內，就保留來源提供的英文名稱，不會亂猜。 */
-const AIRLINES = {
-  "China Airlines": "中華航空",
-  "EVA Air": "長榮航空",
-  "EVA Airways": "長榮航空",
-  "STARLUX Airlines": "星宇航空",
-  "Starlux Airlines": "星宇航空",
-  "Tigerair Taiwan": "台灣虎航",
-  "Peach Aviation": "樂桃航空",
-  "Jetstar Japan": "捷星日本航空",
-  "Jetstar": "捷星航空",
-  "Scoot": "酷航",
-  "Thai Lion Air": "泰國獅子航空",
-  "Korean Air": "大韓航空",
-  "Asiana Airlines": "韓亞航空",
-  "Jeju Air": "濟州航空",
-  "Jin Air": "真航空",
-  "T'way Air": "德威航空",
-  "Tway Air": "德威航空",
-  "Eastar Jet": "易斯達航空",
-  "Air Busan": "釜山航空",
-  "Air Seoul": "首爾航空",
-  "Japan Airlines": "日本航空",
-  "JAL": "日本航空",
-  "All Nippon Airways": "全日空",
-  "ANA": "全日空",
-  "Skymark Airlines": "天馬航空",
-  "Solaseed Air": "空之子航空"
+const AIRLINES={
+  "China Airlines":"中華航空","EVA Air":"長榮航空","EVA Airways":"長榮航空",
+  "STARLUX Airlines":"星宇航空","Starlux Airlines":"星宇航空",
+  "Tigerair Taiwan":"台灣虎航","Peach Aviation":"樂桃航空","Jetstar Japan":"捷星日本航空",
+  "Jetstar":"捷星航空","Scoot":"酷航","Thai Lion Air":"泰國獅子航空",
+  "Korean Air":"大韓航空","Asiana Airlines":"韓亞航空","Jeju Air":"濟州航空",
+  "Jin Air":"真航空","T'way Air":"德威航空","Tway Air":"德威航空",
+  "Eastar Jet":"易斯達航空","Air Busan":"釜山航空","Air Seoul":"首爾航空",
+  "Japan Airlines":"日本航空","JAL":"日本航空","All Nippon Airways":"全日空","ANA":"全日空"
 };
 
-function safe(v,fallback='—'){
-  return (v===null||v===undefined||v==='') ? fallback : v;
+function safe(v,f="—"){return(v===null||v===undefined||v==="")?f:v}
+function airportCn(c){return AIRPORTS[c]?AIRPORTS[c][0]:c}
+function airportEn(c){return AIRPORTS[c]?AIRPORTS[c][1]:""}
+function airlineName(v){
+  if(!v)return"航空公司資料未提供";
+  const en=String(v).trim(),cn=AIRLINES[en];
+  return cn?`${cn} · ${en}`:en;
 }
-
-function airportName(code){
-  return (AIRPORTS[code] && AIRPORTS[code].cn) || code;
-}
-
-function airportEn(code){
-  return (AIRPORTS[code] && AIRPORTS[code].en) || "";
-}
-
-function airportLine(code){
-  const cn=airportName(code);
-  const en=airportEn(code);
-  return `${cn}${en?' · '+en:''}`;
-}
-
-function airlineLabel(raw){
-  if(!raw) return '航空公司資料未提供';
-
-  /* 有時來源會用逗號列出多間航空公司 */
-  return String(raw).split(',').map(x=>{
-    const en=x.trim();
-    const cn=AIRLINES[en];
-    return cn ? `${cn} · ${en}` : en;
-  }).join(' / ');
-}
-
-function price(v){
-  return `NT$${Number(v||0).toLocaleString('zh-TW')}`;
-}
-
-/* fast-flights 可能回：
-   "12:10 PM on Fri, Sep 11"
-   這裡只留下最重要的 24 小時制時間，例如 12:10、16:30。 */
-function clockOnly(raw){
-  if(!raw) return '時間未提供';
-
-  const s=String(raw).trim();
+function money(v){return`NT$${Number(v||0).toLocaleString("zh-TW")}`}
+function clock(v){
+  if(!v)return"時間未提供";
+  const s=String(v).trim();
   const m=s.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-
-  if(!m) return s;
-
-  let h=Number(m[1]);
-  const min=m[2];
-  const ap=m[3].toUpperCase();
-
-  if(ap==='PM' && h!==12) h+=12;
-  if(ap==='AM' && h===12) h=0;
-
-  return `${String(h).padStart(2,'0')}:${min}`;
+  if(!m)return s;
+  let h=Number(m[1]);const mm=m[2],ap=m[3].toUpperCase();
+  if(ap==="PM"&&h!==12)h+=12;if(ap==="AM"&&h===12)h=0;
+  return`${String(h).padStart(2,"0")}:${mm}`;
 }
-
-function dateLine(r){
-  return `${safe(r.best_departure_date)} ～ ${safe(r.best_return_date)} · 停留 ${safe(r.best_stay_days)} 天`;
+function link(r){
+  const q=`Flights from ${r.origin} to ${r.destination} on ${r.best_departure_date} through ${r.best_return_date}`;
+  return`https://www.google.com/travel/flights?hl=zh-TW&curr=TWD&q=${encodeURIComponent(q)}`;
 }
-
-function flightLink(r){
-  const q=`Flights from ${r.origin} to ${r.destination} on ${safe(r.best_departure_date,'')} through ${safe(r.best_return_date,'')}`;
-  return `https://www.google.com/travel/flights?hl=zh-TW&curr=TWD&q=${encodeURIComponent(q)}`;
-}
-
-function outboundFlightHtml(r){
-  const dep=clockOnly(r.dep_time);
-  const arr=clockOnly(r.arr_time);
-
-  return `
-    <div class="flight-box-title">✈ 去程航班</div>
-    <div class="airline-name">${airlineLabel(r.airline)}</div>
-    <div class="flight-date">${safe(r.best_departure_date)} · ${airportName(r.origin)} → ${airportName(r.destination)}</div>
+function optionHtml(o){
+  return `<div class="option">
+    <div class="option-airline">${airlineName(o.airline)}</div>
     <div class="time-row">
-      <div class="time-col">
-        <span class="time-label">起飛</span>
-        <span class="time-value">${dep}</span>
-      </div>
+      <div><span class="time-label">起飛</span><span class="time">${clock(o.departure)}</span></div>
       <div class="time-arrow">→</div>
-      <div class="time-col">
-        <span class="time-label">抵達</span>
-        <span class="time-value">${arr}</span>
-      </div>
+      <div><span class="time-label">抵達</span><span class="time">${clock(o.arrival)}</span></div>
     </div>
-    ${r.duration ? `<div class="flight-meta">飛行時間 ${safe(r.duration)}</div>` : ''}
-    <div class="return-line">
-      ↩ 回程日期：<strong>${safe(r.best_return_date)}</strong>
-      <span style="color:var(--muted)"> · 回程確切時刻目前資料來源未提供</span>
-    </div>
-  `;
+    ${o.duration?`<div class="meta">飛行時間 ${o.duration}${o.stops===0?" · 直飛":""}</div>`:""}
+  </div>`;
 }
 
 async function load(){
   try{
-    const res=await fetch('./data/latest.json',{cache:'no-store'});
-    if(!res.ok) throw new Error('no data');
-    render(await res.json());
+    const res=await fetch("./data/latest.json",{cache:"no-store"});
+    const data=await res.json();
+    render(data);
   }catch(e){
-    document.getElementById('empty').style.display='block';
+    document.getElementById("empty").textContent="讀取 latest.json 失敗";
   }
 }
 
 function render(data){
   const routes=Array.isArray(data.routes)?data.routes:[];
-  if(!routes.length) return;
+  if(!routes.length)return;
 
-  document.getElementById('empty').style.display='none';
-  document.getElementById('grid').style.display='grid';
+  document.getElementById("empty").style.display="none";
+  const grid=document.getElementById("grid");grid.style.display="grid";
 
-  const totalSoFar=safe(data.total_checks_so_far,0);
-  const totalGrid=safe(data.total_combos_in_grid,0);
-  const pct=totalGrid ? ((totalSoFar/totalGrid)*100).toFixed(1) : '0.0';
+  const total=Number(data.total_checks_so_far||0),all=Number(data.total_combos_in_grid||0);
+  const pct=all?((total/all)*100).toFixed(1):"0.0";
+  document.getElementById("progress").textContent=
+    `已累積 ${total} 筆 / ${all} 組（${pct}%）· 本次新增 ${data.checked_this_run||0} 筆`;
 
-  document.getElementById('window-note').textContent=
-    `已累積 ${totalSoFar} 筆 / ${totalGrid} 組（${pct}%）· 本次新增 ${safe(data.checked_this_run,0)} 筆 · 平均價基準 ${safe(data.history_days,60)} 天`;
-
-  const best=routes[0];
-
-  document.getElementById('hero').style.display='block';
-  document.getElementById('hero-route').textContent=
-    `${airportName(best.origin)} (${best.origin}) → ${airportName(best.destination)} (${best.destination})`;
-  document.getElementById('hero-airport').textContent=
-    `${airportLine(best.origin)} → ${airportLine(best.destination)}`;
-  document.getElementById('hero-price').textContent=price(best.best_price);
-  document.getElementById('hero-dates').textContent=dateLine(best);
-  document.getElementById('hero-flight').innerHTML=outboundFlightHtml(best);
-
-  document.getElementById('hero-badges').innerHTML=`
-    <span class="badge">🗓️ 停留 ${safe(best.best_stay_days)} 天</span>
-    <span class="badge pink">📉 比近期平均低 ${Math.max(0,Number(best.diff_percent||0))}%</span>
-    <span class="badge gold">🔥 Cheap Score ${safe(best.cheap_score)}</span>
-    <a class="button" href="${flightLink(best)}" target="_blank" rel="noopener">🔗 查看航班</a>
-  `;
-
-  const medals=['🥇','🥈','🥉'];
-  const grid=document.getElementById('grid');
-  grid.innerHTML='';
+  const medals=["🥇","🥈","🥉"];
 
   routes.forEach((r,i)=>{
-    const card=document.createElement('article');
-    card.className='card';
+    const options=Array.isArray(r.flight_options)?r.flight_options:[];
+    const card=document.createElement("article");card.className="card";
+
+    let optionSection="";
+    if(options.length){
+      optionSection=`
+        <div class="options">
+          <div class="options-title">✈ 同價可選航班 ${options.length>1?`（${options.length} 個）`:""}</div>
+          ${options.map(optionHtml).join("")}
+        </div>`;
+    }else{
+      optionSection=`
+        <div class="options">
+          <div class="options-title">✈ 航班資訊</div>
+          ${optionHtml({airline:r.airline,departure:r.dep_time,arrival:r.arr_time,duration:r.duration,stops:r.stops})}
+        </div>`;
+    }
 
     card.innerHTML=`
-      <div class="rank">${medals[i]||'#'+(i+1)} · ${airportName(r.destination)} (${r.destination})</div>
-
+      <div class="rank">${medals[i]||"#"+(i+1)} · ${airportCn(r.destination)} (${r.destination})</div>
       <div>
-        <div class="route">${airportName(r.origin)} <span class="arrow">→</span> ${airportName(r.destination)}</div>
-        <div class="airport-en">${airportLine(r.origin)} → ${airportLine(r.destination)}</div>
+        <div class="route">${airportCn(r.origin)} <span class="arrow">→</span> ${airportCn(r.destination)}</div>
+        <div class="airport-en">${airportCn(r.origin)} · ${airportEn(r.origin)} → ${airportCn(r.destination)} · ${airportEn(r.destination)}</div>
       </div>
-
-      <div class="price">${price(r.best_price)} <span class="mini">1 人來回</span></div>
-
-      <div class="deal-row">
-        <span class="badge">🗓️ 停留 ${safe(r.best_stay_days)} 天</span>
+      <div class="price">${money(r.best_price)} <span class="mini">1 人來回</span></div>
+      <div class="badges">
+        <span class="badge">🗓 停留 ${safe(r.best_stay_days)} 天</span>
         <span class="badge pink">📉 低 ${Math.max(0,Number(r.diff_percent||0))}%</span>
         <span class="badge gold">🔥 Score ${safe(r.cheap_score)}</span>
       </div>
-
-      <div class="flight-box">
-        ${outboundFlightHtml(r)}
-      </div>
-
+      <div class="meta">${safe(r.best_departure_date)} ～ ${safe(r.best_return_date)}</div>
+      ${optionSection}
+      <div class="return">↩ 回程日期：<strong>${safe(r.best_return_date)}</strong> · 回程確切航班時刻目前資料來源未必能取得</div>
       <div class="footer-row">
-        <span class="stay">最近查價：${safe(r.last_checked_at,'—')}</span>
-        <a class="link" href="${flightLink(r)}" target="_blank" rel="noopener">查看航班 ↗</a>
-      </div>
-    `;
-
+        <span class="meta">同價選擇：${options.length||0}</span>
+        <a class="link" href="${link(r)}" target="_blank" rel="noopener">查看 Google Flights ↗</a>
+      </div>`;
     grid.appendChild(card);
   });
 
-  const updated=new Date(data.generated_at);
-  document.getElementById('updated-at').textContent=
-    '最後更新：'+updated.toLocaleString('zh-TW',{hour12:false});
+  const d=new Date(data.generated_at);
+  document.getElementById("updated").textContent="最後更新："+d.toLocaleString("zh-TW",{hour12:false});
 }
 
 load();

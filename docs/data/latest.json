@@ -1,29 +1,72 @@
 {
-  "generated_at": "2026-09-10T19:54:23.260735",
+  "generated_at": "2026-09-10T20:14:08.441416",
   "adults": 1,
   "history_days": 60,
-  "checked_this_run": 14,
-  "total_checks_so_far": 14,
-  "total_combos_in_grid": 49776,
+  "checked_this_run": 21,
+  "total_checks_so_far": 21,
+  "total_combos_in_grid": 32208,
   "routes": [
+    {
+      "origin": "TPE",
+      "destination": "NRT",
+      "best_price": 7881,
+      "currency": "TWD",
+      "passengers": 1,
+      "best_departure_date": "2026-09-11",
+      "best_return_date": "2026-09-24",
+      "best_stay_days": 13,
+      "airline": "Thai Lion Air",
+      "dep_time": "12:10 PM on Fri, Sep 11",
+      "arr_time": "4:30 PM on Fri, Sep 11",
+      "duration": "3 hr 20 min",
+      "stops": 0,
+      "flight_options": [
+        {
+          "price": 7881,
+          "airline": "Thai Lion Air",
+          "departure": "12:10 PM on Fri, Sep 11",
+          "arrival": "4:30 PM on Fri, Sep 11",
+          "duration": "3 hr 20 min",
+          "stops": 0
+        }
+      ],
+      "same_price_option_count": 1,
+      "recent_average_price": 12096,
+      "diff_percent": 34.8,
+      "last_checked_at": "2026-09-10T20:14:06.317831",
+      "sample_size": 11,
+      "cheap_score": 100
+    },
     {
       "origin": "TPE",
       "destination": "HND",
       "best_price": 11777,
+      "currency": "TWD",
+      "passengers": 1,
       "best_departure_date": "2026-09-10",
-      "best_return_date": "2026-09-24",
-      "best_stay_days": 14,
+      "best_return_date": "2026-09-25",
+      "best_stay_days": 15,
       "airline": "Peach Aviation",
       "dep_time": "8:25 PM on Thu, Sep 10",
       "arr_time": "12:45 AM on Fri, Sep 11",
       "duration": "3 hr 20 min",
       "stops": 0,
-      "baggage": "此資料來源不提供托運行李資訊，請以訂票頁面實際顯示為準",
-      "recent_average_price": 13691,
-      "diff_percent": 14.0,
-      "last_checked_at": "2026-09-10T19:53:57.833768",
-      "sample_size": 14,
-      "cheap_score": 100
+      "flight_options": [
+        {
+          "price": 11777,
+          "airline": "Peach Aviation",
+          "departure": "8:25 PM on Thu, Sep 10",
+          "arrival": "12:45 AM on Fri, Sep 11",
+          "duration": "3 hr 20 min",
+          "stops": 0
+        }
+      ],
+      "same_price_option_count": 1,
+      "recent_average_price": 14148,
+      "diff_percent": 16.8,
+      "last_checked_at": "2026-09-10T20:13:36.106052",
+      "sample_size": 10,
+      "cheap_score": 80
     }
   ]
 }
