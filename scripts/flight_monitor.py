@@ -2,8 +2,10 @@ import os
 import json
 import csv
 import yaml
+import time
+import hashlib
 import datetime
-import itertools
+from collections import defaultdict
 from dateutil.relativedelta import relativedelta
 
 from fast_flights import FlightData, Passengers, create_filter
@@ -15,13 +17,10 @@ except ImportError:
 
 
 CONFIG_PATH = "config.yaml"
-HISTORY_CSV = "docs/data/history.csv"
-LATEST_JSON = "docs/data/latest.json"
-STATE_JSON = "docs/data/state.json"
 
 
 # ============================================================
-# 基本工具
+# 設定 / 路徑
 # ============================================================
 
 def load_config():
@@ -29,104 +28,290 @@ def load_config():
         return yaml.safe_load(f) or {}
 
 
-def ensure_dirs():
-    os.makedirs("docs/data", exist_ok=True)
+def get_paths(cfg):
+    data_cfg = cfg.get("data", {})
+    return {
+        "history": data_cfg.get("history", "docs/data/history.csv"),
+        "latest": data_cfg.get("latest", "docs/data/latest.json"),
+        "state": data_cfg.get("state", "docs/data/state.json"),
+    }
 
 
-def rolling_date_grid(months_ahead=12):
+def ensure_dirs(paths):
+    for path in paths.values():
+        folder = os.path.dirname(path)
+        if folder:
+            os.makedirs(folder, exist_ok=True)
+
+
+# ============================================================
+# 滾動一年 + 每條航線自己的任務表
+# ============================================================
+
+def rolling_dates(months_ahead):
     """
-    每次執行都從今天開始，自動往後滾動 months_ahead 個月。
-    例如 2026-10 執行，就查到 2027-10；
-    2026-11 執行，就自動查到 2027-11。
+    每次執行都從「今天」開始，到今天 + months_ahead 個月。
+    因此搜尋區間每天自動往前滾，不需要手動改日期。
     """
     today = datetime.date.today()
-    end = today + relativedelta(months=months_ahead)
+    end_date = today + relativedelta(months=months_ahead)
 
     dates = []
-    d = today
-    while d <= end:
-        dates.append(d)
-        d += datetime.timedelta(days=1)
+    current = today
+
+    while current <= end_date:
+        dates.append(current)
+        current += datetime.timedelta(days=1)
 
     return dates
 
 
-def generate_search_tasks(cfg):
-    """
-    建立完整候選組合：
-    所有出發日 × 所有目的地 × 所有停留天數。
-    """
+def stay_days_list(cfg):
+    stay_cfg = cfg.get("stay_duration", {})
+    min_days = int(stay_cfg.get("min_days", 5))
+    max_days = int(stay_cfg.get("max_days", 15))
+    step_days = int(stay_cfg.get("step_days", 1))
+
+    if min_days <= 0:
+        raise ValueError("stay_duration.min_days 必須大於 0")
+    if max_days < min_days:
+        raise ValueError("stay_duration.max_days 不能小於 min_days")
+    if step_days <= 0:
+        raise ValueError("stay_duration.step_days 必須大於 0")
+
+    return list(range(min_days, max_days + 1, step_days))
+
+
+def route_keys(cfg):
     origins = cfg.get("origins", ["TPE"])
     destinations = cfg.get("destinations", [])
-
-    stay = cfg.get("stay_duration", {})
-    min_days = int(stay.get("min_days", 7))
-    max_days = int(stay.get("max_days", 21))
-    step_days = int(stay.get("step_days", 1))
 
     if not destinations:
         raise ValueError("config.yaml 的 destinations 不能是空的")
 
-    if min_days <= 0 or max_days < min_days or step_days <= 0:
-        raise ValueError("stay_duration 設定不正確")
+    return [
+        (origin, destination)
+        for origin in origins
+        for destination in destinations
+    ]
 
-    tasks = []
 
-    for dep in rolling_date_grid(int(cfg.get("search_months_ahead", 12))):
-        for origin, dest in itertools.product(origins, destinations):
-            for days in range(min_days, max_days + 1, step_days):
-                ret = dep + datetime.timedelta(days=days)
+def build_tasks_by_route(cfg):
+    """
+    每個目的地建立自己的完整任務表：
+        今天～未來一年 × 5～15 天
+
+    之後 main() 不再從一條大 list 連續切 100 筆，
+    而是對每個目的地公平分配查詢配額。
+    """
+    months_ahead = int(cfg.get("search_months_ahead", 12))
+    dates = rolling_dates(months_ahead)
+    stays = stay_days_list(cfg)
+
+    tasks_by_route = {}
+
+    for origin, destination in route_keys(cfg):
+        key = f"{origin}|{destination}"
+        tasks = []
+
+        for departure_date in dates:
+            for stay_days in stays:
+                return_date = departure_date + datetime.timedelta(days=stay_days)
 
                 tasks.append({
                     "origin": origin,
-                    "destination": dest,
-                    "departure": dep.strftime("%Y-%m-%d"),
-                    "return": ret.strftime("%Y-%m-%d"),
-                    "stay_days": days,
+                    "destination": destination,
+                    "departure_date": departure_date.isoformat(),
+                    "return_date": return_date.isoformat(),
+                    "stay_days": stay_days,
                 })
 
-    return tasks
+        tasks_by_route[key] = tasks
+
+    return tasks_by_route
+
+
+def grid_signature(cfg):
+    """
+    搜尋條件改變時，自動判斷舊 state 已不適用並重置游標。
+    """
+    payload = {
+        "origins": cfg.get("origins", ["TPE"]),
+        "destinations": cfg.get("destinations", []),
+        "months": int(cfg.get("search_months_ahead", 12)),
+        "stays": stay_days_list(cfg),
+        "adults": int(cfg.get("adults", 1)),
+        "seat": str(cfg.get("seat", "economy")),
+        "direct_only": bool(cfg.get("direct_only", True)),
+    }
+
+    text = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()
 
 
 # ============================================================
-# state.json
+# 公平輪詢 state
 # ============================================================
 
-def load_state():
-    if os.path.exists(STATE_JSON):
-        try:
-            with open(STATE_JSON, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            return {"next_index": int(data.get("next_index", 0))}
-        except Exception:
-            pass
-
-    return {"next_index": 0}
+def fresh_state(cfg):
+    return {
+        "version": 3,
+        "grid_signature": grid_signature(cfg),
+        "grid_start_date": datetime.date.today().isoformat(),
+        "next_index_by_route": {},
+        "extra_rotation": 0,
+    }
 
 
-def save_state(index):
-    with open(STATE_JSON, "w", encoding="utf-8") as f:
-        json.dump(
-            {"next_index": int(index)},
-            f,
-            ensure_ascii=False,
-            indent=2,
-        )
+def load_state(cfg, state_path):
+    """
+    新版 state 使用每條航線獨立游標：
+      TPE|NRT -> index
+      TPE|HND -> index
+      ...
+
+    如果是舊版 state（只有 next_index）或 config 改變，
+    自動重置，不需要手動刪 state.json。
+    """
+    state = fresh_state(cfg)
+
+    if not os.path.exists(state_path):
+        return state
+
+    try:
+        with open(state_path, "r", encoding="utf-8") as f:
+            old = json.load(f)
+
+        if old.get("grid_signature") != state["grid_signature"]:
+            print("ℹ️ 搜尋設定已改變，公平輪詢游標自動重置")
+            return state
+
+        if not isinstance(old.get("next_index_by_route"), dict):
+            print("ℹ️ 偵測到舊版 state.json，公平輪詢游標自動重置")
+            return state
+
+        state["next_index_by_route"] = {
+            str(k): int(v)
+            for k, v in old.get("next_index_by_route", {}).items()
+        }
+        state["extra_rotation"] = int(old.get("extra_rotation", 0))
+
+        # 滾動日期每天會往前移一天。
+        # 為了讓游標仍指向接近原本的「絕對日期」，將游標同步往前調整。
+        old_start_text = old.get("grid_start_date")
+        if old_start_text:
+            old_start = datetime.date.fromisoformat(old_start_text)
+            today = datetime.date.today()
+            shifted_days = (today - old_start).days
+
+            if shifted_days > 0:
+                per_day = len(stay_days_list(cfg))
+                shift_slots = shifted_days * per_day
+
+                for key in list(state["next_index_by_route"].keys()):
+                    state["next_index_by_route"][key] = max(
+                        0,
+                        state["next_index_by_route"][key] - shift_slots
+                    )
+
+        state["grid_start_date"] = datetime.date.today().isoformat()
+        return state
+
+    except Exception as exc:
+        print(f"⚠️ state.json 讀取失敗，將重新開始：{exc}")
+        return state
+
+
+def save_state(state, state_path):
+    state["grid_start_date"] = datetime.date.today().isoformat()
+
+    with open(state_path, "w", encoding="utf-8") as f:
+        json.dump(state, f, ensure_ascii=False, indent=2)
+
+
+def build_fair_batch(cfg, tasks_by_route, state):
+    """
+    8 個目的地公平輪詢。
+
+    例如 max_checks_per_run = 96：
+      8 個目的地 -> 每個目的地 12 組。
+
+    如果 max_checks_per_run = 100：
+      每個目的地先 12 組，剩下 4 組輪流分配；
+      下一次從不同目的地開始分額外配額，長期仍然公平。
+    """
+    keys = list(tasks_by_route.keys())
+    route_count = len(keys)
+
+    if route_count == 0:
+        return [], {}, 0
+
+    batch_size = max(route_count, int(cfg.get("max_checks_per_run", 96)))
+    base = batch_size // route_count
+    remainder = batch_size % route_count
+
+    rotation = int(state.get("extra_rotation", 0)) % route_count
+
+    quotas = {key: base for key in keys}
+
+    for i in range(remainder):
+        key = keys[(rotation + i) % route_count]
+        quotas[key] += 1
+
+    selected_by_route = {}
+    next_indexes = {}
+
+    for key in keys:
+        tasks = tasks_by_route[key]
+
+        if not tasks:
+            selected_by_route[key] = []
+            next_indexes[key] = 0
+            continue
+
+        start = int(state["next_index_by_route"].get(key, 0)) % len(tasks)
+        quota = quotas[key]
+
+        picked = [
+            tasks[(start + offset) % len(tasks)]
+            for offset in range(quota)
+        ]
+
+        selected_by_route[key] = picked
+        next_indexes[key] = (start + quota) % len(tasks)
+
+    # 真正執行時也交錯查詢：NRT 一筆、HND 一筆、KIX 一筆……
+    # 避免前半段全打同一個目的地。
+    selected = []
+    max_quota = max(quotas.values())
+
+    execution_keys = [
+        keys[(rotation + i) % route_count]
+        for i in range(route_count)
+    ]
+
+    for slot in range(max_quota):
+        for key in execution_keys:
+            rows = selected_by_route[key]
+            if slot < len(rows):
+                selected.append(rows[slot])
+
+    next_rotation = (
+        (rotation + remainder) % route_count
+        if remainder
+        else (rotation + 1) % route_count
+    )
+
+    return selected, next_indexes, next_rotation
 
 
 # ============================================================
 # 價格 / 航班資料解析
 # ============================================================
 
-def _parse_price(raw_price):
+def parse_price(raw_price):
     """
-    將 fast-flights 回傳的價格轉成 int。
-    查詢時強制 currency="TWD"。
-
-    為避免 "$250" 被誤當 NT$250：
-    - 明確美元 $xxx（但不是 NT$）直接丟掉
-    - Price unavailable / Check price 直接丟掉
-    - 最終數字小於 1000 直接丟掉
+    強制避免美元數字被誤當成新台幣。
     """
     if raw_price is None:
         return None
@@ -136,17 +321,21 @@ def _parse_price(raw_price):
         return value if value >= 1000 else None
 
     text = str(raw_price).strip()
+
     if not text:
         return None
 
     lower = text.lower()
+
     if "price unavailable" in lower or "check price" in lower:
         return None
 
+    # "$250" 丟掉；"NT$8,525" 接受。
     if "$" in text and "NT$" not in text.upper():
         return None
 
     digits = "".join(ch for ch in text if ch.isdigit())
+
     if not digits:
         return None
 
@@ -154,9 +343,7 @@ def _parse_price(raw_price):
     return value if value >= 1000 else None
 
 
-def _text_value(obj, attr):
-    value = getattr(obj, attr, None)
-
+def clean_text(value):
     if value is None:
         return None
 
@@ -170,7 +357,7 @@ def _text_value(obj, attr):
     return text
 
 
-def _safe_int(value):
+def safe_int(value):
     if value is None or value == "":
         return None
 
@@ -180,62 +367,54 @@ def _safe_int(value):
         return None
 
 
-def _flight_option(flight):
-    """把一個 fast-flights Flight 物件整理成前端可顯示的同價航班選項。"""
+def flight_option(flight):
     return {
-        "price": _parse_price(getattr(flight, "price", None)),
-        "airline": _text_value(flight, "name"),
-        "departure": _text_value(flight, "departure"),
-        "arrival": _text_value(flight, "arrival"),
-        "duration": _text_value(flight, "duration"),
-        "stops": _safe_int(getattr(flight, "stops", None)),
+        "price": parse_price(getattr(flight, "price", None)),
+        "airline": clean_text(getattr(flight, "name", None)),
+        "departure": clean_text(getattr(flight, "departure", None)),
+        "arrival": clean_text(getattr(flight, "arrival", None)),
+        "duration": clean_text(getattr(flight, "duration", None)),
+        "stops": safe_int(getattr(flight, "stops", None)),
     }
 
 
-def _option_identity(option):
-    """用來去除同一批結果中的重複航班。"""
+def option_identity(option):
     return (
+        option.get("price"),
         option.get("airline"),
         option.get("departure"),
         option.get("arrival"),
         option.get("duration"),
         option.get("stops"),
-        option.get("price"),
     )
 
 
-def _build_same_price_options(candidates):
+def same_price_options(candidates):
     """
-    找出本次查詢「最低價完全相同」的所有航班，
-    分別保留航空公司、起飛時間、抵達時間、飛行時間。
-
-    例：
-    NT$8,525
-      - 台灣虎航 16:25 → 20:15
-      - 另一航空公司 18:10 → 22:00
-
-    兩筆都會存，不再只留其中一筆。
+    找出「最低價格」完全相同的所有可辨識航班，
+    讓網頁把不同航空公司 / 不同起飛時間逐一列出。
     """
-    if not candidates:
+    prices = [
+        parse_price(getattr(f, "price", None))
+        for f in candidates
+    ]
+    prices = [p for p in prices if p is not None]
+
+    if not prices:
         return None, []
 
-    min_price = min(
-        _parse_price(getattr(f, "price", None))
-        for f in candidates
-    )
-
-    same_price = [
-        f for f in candidates
-        if _parse_price(getattr(f, "price", None)) == min_price
-    ]
+    minimum = min(prices)
 
     options = []
     seen = set()
 
-    for flight in same_price:
-        option = _flight_option(flight)
+    for flight in candidates:
+        if parse_price(getattr(flight, "price", None)) != minimum:
+            continue
 
-        # 至少有航空公司或時間其中一項才值得當成選項顯示
+        option = flight_option(flight)
+
+        # 完全沒有航空公司和時間的項目不另外列成「可選航班」。
         if not (
             option.get("airline")
             or option.get("departure")
@@ -243,16 +422,20 @@ def _build_same_price_options(candidates):
         ):
             continue
 
-        key = _option_identity(option)
-        if key in seen:
+        identity = option_identity(option)
+
+        if identity in seen:
             continue
 
-        seen.add(key)
+        seen.add(identity)
         options.append(option)
 
-    # 排序：資料完整的優先，其次按航空公司與起飛時間
+    # 航空公司 + 起飛 + 抵達資料越完整，排越前面。
     def completeness(opt):
-        return sum(bool(opt.get(k)) for k in ("airline", "departure", "arrival"))
+        return sum(
+            bool(opt.get(k))
+            for k in ("airline", "departure", "arrival")
+        )
 
     options.sort(
         key=lambda opt: (
@@ -262,120 +445,130 @@ def _build_same_price_options(candidates):
         )
     )
 
-    return min_price, options
+    return minimum, options
 
 
 # ============================================================
-# 單一日期組合查詢
+# Google Flights 查詢
 # ============================================================
+
+def query_google(task, cfg):
+    adults = int(cfg.get("adults", 1))
+    seat = str(cfg.get("seat", "economy"))
+    direct_only = bool(cfg.get("direct_only", True))
+
+    flight_filter = create_filter(
+        flight_data=[
+            FlightData(
+                date=task["departure_date"],
+                from_airport=task["origin"],
+                to_airport=task["destination"],
+            ),
+            FlightData(
+                date=task["return_date"],
+                from_airport=task["destination"],
+                to_airport=task["origin"],
+            ),
+        ],
+        trip="round-trip",
+        passengers=Passengers(adults=adults),
+        seat=seat,
+        max_stops=0 if direct_only else None,
+    )
+
+    return get_flights_from_filter(
+        flight_filter,
+        currency="TWD",
+    )
+
 
 def search_one(task, cfg):
-    try:
-        adults = int(cfg.get("adults", 1))
-        seat = str(cfg.get("seat", "economy"))
+    """
+    如果第一輪有價格、但完全抓不到航空公司/時間，
+    可依 config 的 metadata_retry_count 再重試。
+    """
+    retry_count = max(0, int(cfg.get("metadata_retry_count", 1)))
+    retry_delay = max(0.0, float(cfg.get("metadata_retry_delay_seconds", 1.0)))
 
-        flight_filter = create_filter(
-            flight_data=[
-                FlightData(
-                    date=task["departure"],
-                    from_airport=task["origin"],
-                    to_airport=task["destination"],
+    best_result = None
+
+    for attempt in range(retry_count + 1):
+        try:
+            result = query_google(task, cfg)
+
+            flights = getattr(result, "flights", None) or []
+
+            candidates = [
+                f
+                for f in flights
+                if parse_price(getattr(f, "price", None)) is not None
+            ]
+
+            if not candidates:
+                if attempt < retry_count:
+                    time.sleep(retry_delay)
+                    continue
+                return None
+
+            minimum, options = same_price_options(candidates)
+
+            if minimum is None:
+                return None
+
+            row = {
+                "origin": task["origin"],
+                "destination": task["destination"],
+                "departure_date": task["departure_date"],
+                "return_date": task["return_date"],
+                "stay_days": task["stay_days"],
+                "price": minimum,
+                "price_raw": f"NT${minimum}",
+                "currency": "TWD",
+                "passengers": int(cfg.get("adults", 1)),
+                "flight_options_json": json.dumps(
+                    options,
+                    ensure_ascii=False,
                 ),
-                FlightData(
-                    date=task["return"],
-                    from_airport=task["destination"],
-                    to_airport=task["origin"],
-                ),
-            ],
-            trip="round-trip",
-            passengers=Passengers(adults=adults),
-            seat=seat,
-            max_stops=0,
-        )
+                "checked_at": datetime.datetime.now().isoformat(),
+            }
 
-        result = get_flights_from_filter(
-            flight_filter,
-            currency="TWD",
-        )
+            best_result = row
 
-        if not getattr(result, "flights", None):
-            return None
+            if options:
+                if len(options) > 1:
+                    print(
+                        f"    ✅ NT${minimum:,}："
+                        f"{len(options)} 個同價航班，全部保留"
+                    )
+                return row
 
-        candidates = [
-            f
-            for f in result.flights
-            if _parse_price(getattr(f, "price", None)) is not None
-        ]
+            # 有價格但沒有 metadata，重試一次看看。
+            if attempt < retry_count:
+                print(
+                    f"    ↻ NT${minimum:,} 有價格但航空公司/時間未解析，重試..."
+                )
+                time.sleep(retry_delay)
+                continue
 
-        if not candidates:
-            return None
-
-        min_price, same_price_options = _build_same_price_options(candidates)
-
-        if min_price is None:
-            return None
-
-        # 如果最低價有多個可辨識航班，全部保留下來。
-        # primary 只用來相容舊前端欄位；新版前端會讀 flight_options。
-        primary = same_price_options[0] if same_price_options else {
-            "price": min_price,
-            "airline": None,
-            "departure": None,
-            "arrival": None,
-            "duration": None,
-            "stops": None,
-        }
-
-        if len(same_price_options) > 1:
             print(
-                f"✅ NT${min_price:,} 找到 {len(same_price_options)} 個同價航班，"
-                "全部保留供網頁選擇"
+                f"    ⚠️ NT${minimum:,} 有價格，"
+                "但本次資料來源仍未解析出航空公司/時間"
             )
-        elif len(same_price_options) == 1:
+            return row
+
+        except Exception as exc:
+            if attempt < retry_count:
+                print(f"    ↻ 查詢失敗，重試：{exc}")
+                time.sleep(retry_delay)
+                continue
+
             print(
-                f"✅ NT${min_price:,} 找到 1 個可辨識航班"
+                f"    ❌ {task['origin']}->{task['destination']} "
+                f"{task['departure_date']}~{task['return_date']}：{exc}"
             )
-        else:
-            print(
-                f"⚠️ NT${min_price:,} 有價格，但本次沒有解析出航空公司/時間"
-            )
+            return best_result
 
-        return {
-            "origin": task["origin"],
-            "destination": task["destination"],
-
-            "departure_date": task["departure"],
-            "return_date": task["return"],
-            "stay_days": task["stay_days"],
-
-            "price": min_price,
-            "price_raw": f"NT${min_price}",
-            "currency": "TWD",
-            "passengers": adults,
-
-            # 相容原本欄位
-            "airline": primary.get("airline"),
-            "departure": primary.get("departure"),
-            "arrival": primary.get("arrival"),
-            "duration": primary.get("duration"),
-            "stops": primary.get("stops"),
-
-            # 新增：同一最低價的所有可選航班
-            "flight_options_json": json.dumps(
-                same_price_options,
-                ensure_ascii=False,
-            ),
-
-            "checked_at": datetime.datetime.now().isoformat(),
-        }
-
-    except Exception as e:
-        print(
-            f"Search failed: "
-            f"{task['origin']}->{task['destination']} "
-            f"{task['departure']}~{task['return']} | {e}"
-        )
-        return None
+    return best_result
 
 
 # ============================================================
@@ -392,47 +585,102 @@ HISTORY_FIELDS = [
     "price_raw",
     "currency",
     "passengers",
-    "airline",
-    "departure",
-    "arrival",
-    "duration",
-    "stops",
     "flight_options_json",
     "checked_at",
 ]
 
 
-def load_history():
-    if not os.path.exists(HISTORY_CSV):
+def load_history(history_path):
+    if not os.path.exists(history_path):
         return []
 
     rows = []
 
-    with open(HISTORY_CSV, "r", encoding="utf-8-sig", newline="") as f:
+    with open(
+        history_path,
+        "r",
+        encoding="utf-8-sig",
+        newline="",
+    ) as f:
         reader = csv.DictReader(f)
 
-        for row in reader:
-            if not row:
+        for raw in reader:
+            if not raw:
                 continue
 
-            price = _parse_price(row.get("price"))
+            price = parse_price(raw.get("price"))
+
+            # 相容更舊版本的 best_price 欄位，但只接受合理 TWD 值。
+            if price is None:
+                price = parse_price(raw.get("best_price"))
+
             if price is None:
                 continue
 
-            cleaned = {
-                field: row.get(field, "")
-                for field in HISTORY_FIELDS
-            }
-            cleaned["price"] = price
+            departure_date = (
+                raw.get("departure_date")
+                or raw.get("best_departure_date")
+            )
+            return_date = (
+                raw.get("return_date")
+                or raw.get("best_return_date")
+            )
+            stay_days = (
+                raw.get("stay_days")
+                or raw.get("best_stay_days")
+            )
 
-            rows.append(cleaned)
+            # 舊資料若沒有 options，嘗試從舊欄位組成一個 option。
+            options_json = raw.get("flight_options_json", "")
+
+            if not options_json:
+                airline = raw.get("airline")
+                departure = raw.get("departure") or raw.get("dep_time")
+                arrival = raw.get("arrival") or raw.get("arr_time")
+                duration = raw.get("duration")
+
+                if airline or departure or arrival:
+                    options_json = json.dumps(
+                        [{
+                            "price": price,
+                            "airline": airline or None,
+                            "departure": departure or None,
+                            "arrival": arrival or None,
+                            "duration": duration or None,
+                            "stops": safe_int(raw.get("stops")),
+                        }],
+                        ensure_ascii=False,
+                    )
+
+            row = {
+                "origin": raw.get("origin", ""),
+                "destination": raw.get("destination", ""),
+                "departure_date": departure_date or "",
+                "return_date": return_date or "",
+                "stay_days": safe_int(stay_days),
+                "price": price,
+                "price_raw": raw.get("price_raw") or f"NT${price}",
+                "currency": "TWD",
+                "passengers": safe_int(raw.get("passengers")) or 1,
+                "flight_options_json": options_json,
+                "checked_at": raw.get("checked_at") or raw.get("last_checked_at") or "",
+            }
+
+            if not row["origin"] or not row["destination"]:
+                continue
+            if not row["departure_date"] or not row["return_date"]:
+                continue
+            if row["stay_days"] is None:
+                continue
+
+            rows.append(row)
 
     return rows
 
 
-def save_history(history):
+def save_history(history, history_path):
     with open(
-        HISTORY_CSV,
+        history_path,
         "w",
         newline="",
         encoding="utf-8-sig",
@@ -446,165 +694,206 @@ def save_history(history):
         writer.writerows(history)
 
 
-def _parse_options_json(raw):
+def parse_options(raw):
     if not raw:
         return []
 
     try:
-        data = json.loads(raw)
-        return data if isinstance(data, list) else []
+        result = json.loads(raw)
+
+        if isinstance(result, list):
+            return result
     except Exception:
-        return []
+        pass
+
+    return []
+
+
+def merge_options(option_lists, target_price):
+    """
+    同一日期組合重複查價時：
+    若價格相同，把不同輪抓到的航空公司/時間合併起來，
+    可降低某一次解析失敗造成的「資料未提供」。
+    """
+    merged = []
+    seen = set()
+
+    for options in option_lists:
+        for option in options:
+            option_price = parse_price(option.get("price"))
+
+            if option_price is not None and option_price != target_price:
+                continue
+
+            identity = option_identity(option)
+
+            if identity in seen:
+                continue
+
+            seen.add(identity)
+            merged.append(option)
+
+    return merged
 
 
 # ============================================================
-# 排行 / 相對便宜程度
+# 產生可供網頁篩選的所有「目前候選優惠」
 # ============================================================
 
-def _parse_checked_at(value):
+def checked_at_value(row):
     try:
-        return datetime.datetime.fromisoformat(str(value))
+        return datetime.datetime.fromisoformat(str(row.get("checked_at", "")))
     except Exception:
-        return None
+        return datetime.datetime.min
 
 
-def build_route_rankings(history, history_days=60):
+def build_dashboard_data(history, cfg):
     """
-    首頁仍是一個目的地一張卡片，
-    但卡片內會列出「該最低價的所有同價航班選項」。
+    不再只輸出「每個目的地一張最低價」。
+
+    改成：
+      1. 每個 出發地+目的地+去程日+回程日+停留天數，
+         取「最近一次」查到的價格。
+      2. 計算該航線的相對平均價與 Cheap Score。
+      3. 輸出很多筆 deals，讓網頁自己篩：
+         目的地 / 日期 / 停留時間 / 價格 / 相對便宜程度。
     """
-    now = datetime.datetime.now()
-    cutoff = now - datetime.timedelta(days=history_days)
-
-    by_route = {}
-
-    for row in history:
-        price = _parse_price(row.get("price"))
-        if price is None:
-            continue
-
-        key = (
-            row.get("origin"),
-            row.get("destination"),
-        )
-
-        entry = dict(row)
-        entry["price"] = price
-
-        by_route.setdefault(key, []).append(entry)
-
-    routes = []
-
-    for (origin, destination), rows in by_route.items():
-        recent_rows = []
-
-        for r in rows:
-            checked_at = _parse_checked_at(r.get("checked_at"))
-            if checked_at is None or checked_at >= cutoff:
-                recent_rows.append(r)
-
-        avg_pool = recent_rows if recent_rows else rows
-
-        avg_price = (
-            sum(r["price"] for r in avg_pool)
-            / len(avg_pool)
-        )
-
-        # 找目前已知最低價
-        best_price = min(r["price"] for r in rows)
-
-        # 同一最低價可能存在不同日期；為了卡片不混淆，
-        # 優先挑「同價航班選項最多」的那一個日期組合作為展示。
-        best_price_rows = [
-            r for r in rows
-            if r["price"] == best_price
-        ]
-
-        def row_option_count(r):
-            return len(_parse_options_json(r.get("flight_options_json")))
-
-        best = max(
-            best_price_rows,
-            key=lambda r: (
-                row_option_count(r),
-                str(r.get("checked_at") or ""),
-            ),
-        )
-
-        options = _parse_options_json(
-            best.get("flight_options_json")
-        )
-
-        # 舊資料沒有 flight_options_json 時，至少把舊欄位轉成一個 option
-        if not options and (
-            best.get("airline")
-            or best.get("departure")
-            or best.get("arrival")
-        ):
-            options = [{
-                "price": best["price"],
-                "airline": best.get("airline") or None,
-                "departure": best.get("departure") or None,
-                "arrival": best.get("arrival") or None,
-                "duration": best.get("duration") or None,
-                "stops": _safe_int(best.get("stops")),
-            }]
-
-        diff_percent = 0.0
-        if avg_price:
-            diff_percent = max(
-                0.0,
-                (avg_price - best["price"])
-                / avg_price
-                * 100,
-            )
-
-        routes.append({
-            "origin": origin,
-            "destination": destination,
-
-            "best_price": best["price"],
-            "currency": best.get("currency") or "TWD",
-            "passengers": _safe_int(best.get("passengers")) or 1,
-
-            "best_departure_date": best.get("departure_date"),
-            "best_return_date": best.get("return_date"),
-            "best_stay_days": _safe_int(best.get("stay_days")),
-
-            # 相容舊欄位
-            "airline": best.get("airline") or None,
-            "dep_time": best.get("departure") or None,
-            "arr_time": best.get("arrival") or None,
-            "duration": best.get("duration") or None,
-            "stops": _safe_int(best.get("stops")),
-
-            # 新欄位：同價選擇
-            "flight_options": options,
-            "same_price_option_count": len(options),
-
-            "recent_average_price": round(avg_price),
-            "diff_percent": round(diff_percent, 1),
-
-            "last_checked_at": best.get("checked_at"),
-            "sample_size": len(rows),
-        })
-
-    routes.sort(
-        key=lambda r: r["diff_percent"],
-        reverse=True,
+    today = datetime.date.today()
+    end_date = today + relativedelta(
+        months=int(cfg.get("search_months_ahead", 12))
     )
 
-    total = len(routes)
+    valid_stays = set(stay_days_list(cfg))
+    history_days = int(cfg.get("history_days", 60))
+    cutoff = datetime.datetime.now() - datetime.timedelta(days=history_days)
 
-    for i, r in enumerate(routes):
-        if total <= 1:
-            r["cheap_score"] = 100
-        else:
-            r["cheap_score"] = round(
-                100 - (i / (total - 1)) * 20
+    # 先只保留目前滾動一年窗口內、停留天數符合 config 的資料。
+    valid_history = []
+
+    for row in history:
+        try:
+            dep_date = datetime.date.fromisoformat(row["departure_date"])
+        except Exception:
+            continue
+
+        stay = safe_int(row.get("stay_days"))
+        price = parse_price(row.get("price"))
+
+        if price is None or stay not in valid_stays:
+            continue
+        if dep_date < today or dep_date > end_date:
+            continue
+
+        valid_history.append(row)
+
+    # 同一路線的近期價格池，用來計算「相對便宜」。
+    route_price_pool = defaultdict(list)
+
+    for row in valid_history:
+        checked = checked_at_value(row)
+
+        if checked == datetime.datetime.min or checked >= cutoff:
+            route_price_pool[
+                (row["origin"], row["destination"])
+            ].append(parse_price(row["price"]))
+
+    # 若某航線最近 history_days 沒資料，退回使用全部有效歷史。
+    all_route_prices = defaultdict(list)
+
+    for row in valid_history:
+        all_route_prices[
+            (row["origin"], row["destination"])
+        ].append(parse_price(row["price"]))
+
+    # 同一「日期組合」可能查過很多次。
+    # 取最新價格，但如果同價格的舊紀錄有更完整的航班資訊就合併。
+    combo_groups = defaultdict(list)
+
+    for row in valid_history:
+        key = (
+            row["origin"],
+            row["destination"],
+            row["departure_date"],
+            row["return_date"],
+            safe_int(row["stay_days"]),
+        )
+        combo_groups[key].append(row)
+
+    deals = []
+
+    for key, rows in combo_groups.items():
+        rows.sort(key=checked_at_value, reverse=True)
+        latest_row = rows[0]
+
+        current_price = parse_price(latest_row["price"])
+        if current_price is None:
+            continue
+
+        # 只合併「目前同價格」的 metadata，避免把舊價格的航班錯配到新價格。
+        option_lists = [
+            parse_options(r.get("flight_options_json"))
+            for r in rows
+            if parse_price(r.get("price")) == current_price
+        ]
+
+        options = merge_options(option_lists, current_price)
+
+        route = (latest_row["origin"], latest_row["destination"])
+        pool = route_price_pool.get(route) or all_route_prices.get(route) or []
+
+        if pool:
+            average_price = sum(pool) / len(pool)
+            diff_percent = (
+                (average_price - current_price)
+                / average_price
+                * 100
             )
 
-    return routes
+            # 價格越低，Cheap Score 越高。
+            # = 此價格至少比該航線多少比例的近期報價便宜或相同。
+            at_or_above = sum(1 for p in pool if p >= current_price)
+            cheap_score = round(at_or_above / len(pool) * 100)
+        else:
+            average_price = current_price
+            diff_percent = 0.0
+            cheap_score = 50
+
+        deals.append({
+            "origin": latest_row["origin"],
+            "destination": latest_row["destination"],
+            "departure_date": latest_row["departure_date"],
+            "return_date": latest_row["return_date"],
+            "stay_days": safe_int(latest_row["stay_days"]),
+            "price": current_price,
+            "currency": "TWD",
+            "passengers": safe_int(latest_row.get("passengers")) or 1,
+            "flight_options": options,
+            "same_price_option_count": len(options),
+            "recent_average_price": round(average_price),
+            "diff_percent": round(diff_percent, 1),
+            "cheap_score": cheap_score,
+            "checked_at": latest_row.get("checked_at"),
+            "route_sample_size": len(pool),
+        })
+
+    # 預設先以「相對便宜」排序。
+    deals.sort(
+        key=lambda d: (
+            -d["cheap_score"],
+            -d["diff_percent"],
+            d["price"],
+            d["departure_date"],
+        )
+    )
+
+    # 避免靜態 JSON 無限制長大；保留大量相對便宜候選供網頁篩選。
+    # 設為 0 代表不限筆數。
+    max_publish = int(cfg.get("max_deals_to_publish", 3000))
+
+    if max_publish > 0:
+        deals = deals[:max_publish]
+
+    return deals
 
 
 # ============================================================
@@ -612,43 +901,57 @@ def build_route_rankings(history, history_days=60):
 # ============================================================
 
 def main():
-    print("=== Flight crawler start ===")
+    print("=== Flight Deal Watcher ===")
 
-    ensure_dirs()
     cfg = load_config()
+    paths = get_paths(cfg)
+    ensure_dirs(paths)
 
-    tasks = generate_search_tasks(cfg)
+    tasks_by_route = build_tasks_by_route(cfg)
+    total_combos = sum(len(v) for v in tasks_by_route.values())
 
-    if not tasks:
-        print("沒有候選搜尋組合")
-        return
+    state = load_state(cfg, paths["state"])
 
-    state = load_state()
-    start = int(state.get("next_index", 0))
+    selected, next_indexes, next_rotation = build_fair_batch(
+        cfg,
+        tasks_by_route,
+        state,
+    )
 
-    if start >= len(tasks):
-        start = 0
+    route_run_counts = defaultdict(int)
 
-    batch = int(cfg.get("max_checks_per_run", 50))
+    for task in selected:
+        route_run_counts[
+            f"{task['origin']}|{task['destination']}"
+        ] += 1
 
-    selected = tasks[start:start + batch]
+    print(
+        f"滾動區間：{datetime.date.today()} ～ "
+        f"{datetime.date.today() + relativedelta(months=int(cfg.get('search_months_ahead', 12)))}"
+    )
+    print(
+        f"停留時間：{min(stay_days_list(cfg))}～{max(stay_days_list(cfg))} 天"
+    )
+    print(f"全部候選組合：{total_combos}")
+    print(f"本次公平輪詢：{len(selected)} 組")
 
-    if len(selected) < batch:
-        selected += tasks[:batch - len(selected)]
+    print("本次各目的地配額：")
+    for key in tasks_by_route:
+        print(f"  {key.replace('|', ' -> ')}：{route_run_counts[key]} 組")
 
     new_rows = []
 
-    print(
-        f"候選組合總數：{len(tasks)} | "
-        f"本次從 index {start} 開始查 {len(selected)} 組"
+    request_delay = max(
+        0.0,
+        float(cfg.get("request_delay_seconds", 0.0))
     )
 
     for idx, task in enumerate(selected, start=1):
         print(
             f"[{idx}/{len(selected)}] "
-            f"{task['origin']} -> {task['destination']} "
-            f"{task['departure']} ~ {task['return']} "
-            f"(停留 {task['stay_days']} 天)"
+            f"{task['origin']} -> {task['destination']} | "
+            f"{task['departure_date']} ~ {task['return_date']} | "
+            f"停留 {task['stay_days']} 天"
         )
 
         result = search_one(task, cfg)
@@ -656,58 +959,61 @@ def main():
         if result:
             new_rows.append(result)
 
-    next_index = (start + len(selected)) % len(tasks)
-    save_state(next_index)
+        if request_delay > 0 and idx < len(selected):
+            time.sleep(request_delay)
 
-    history = load_history()
+    state["next_index_by_route"] = next_indexes
+    state["extra_rotation"] = next_rotation
+    save_state(state, paths["state"])
+
+    history = load_history(paths["history"])
     history.extend(new_rows)
 
     if not history:
-        print(
-            "本次沒有任何成功查詢結果；"
-            "不更新 history.csv / latest.json"
-        )
+        print("本次沒有成功取得任何價格，資料檔不更新")
         return
 
-    save_history(history)
+    save_history(history, paths["history"])
 
-    history_days = int(cfg.get("history_days", 60))
-
-    route_rankings = build_route_rankings(
-        history,
-        history_days=history_days,
-    )
+    deals = build_dashboard_data(history, cfg)
 
     latest = {
         "generated_at": datetime.datetime.now().isoformat(),
+        "search_start_date": datetime.date.today().isoformat(),
+        "search_end_date": (
+            datetime.date.today()
+            + relativedelta(months=int(cfg.get("search_months_ahead", 12)))
+        ).isoformat(),
         "adults": int(cfg.get("adults", 1)),
-        "history_days": history_days,
+        "stay_min_days": min(stay_days_list(cfg)),
+        "stay_max_days": max(stay_days_list(cfg)),
+        "history_days": int(cfg.get("history_days", 60)),
         "checked_this_run": len(new_rows),
+        "attempted_this_run": len(selected),
         "total_checks_so_far": len(history),
-        "total_combos_in_grid": len(tasks),
-        "routes": route_rankings,
+        "total_combos_in_grid": total_combos,
+        "route_checks_this_run": dict(route_run_counts),
+        "deal_count": len(deals),
+        "deals": deals,
     }
 
-    with open(
-        LATEST_JSON,
-        "w",
-        encoding="utf-8",
-    ) as f:
+    with open(paths["latest"], "w", encoding="utf-8") as f:
         json.dump(
             latest,
             f,
             ensure_ascii=False,
-            indent=2,
+            separators=(",", ":"),
         )
 
     print()
     print("=== 完成 ===")
-    print(f"本次成功取得：{len(new_rows)} 筆")
+    print(f"本次嘗試：{len(selected)} 組")
+    print(f"本次成功：{len(new_rows)} 筆")
     print(f"歷史累積：{len(history)} 筆")
-    print(f"下一次從 index：{next_index}")
-    print(f"已更新：{HISTORY_CSV}")
-    print(f"已更新：{LATEST_JSON}")
-    print(f"已更新：{STATE_JSON}")
+    print(f"網頁可篩選優惠：{len(deals)} 筆")
+    print(f"history：{paths['history']}")
+    print(f"latest：{paths['latest']}")
+    print(f"state：{paths['state']}")
 
 
 if __name__ == "__main__":
