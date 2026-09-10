@@ -1,14 +1,26 @@
-import os
-import json
+from __future__ import annotations
+
 import csv
-import yaml
-import time
+import datetime as dt
 import hashlib
-import datetime
+import json
+import re
+import time
+
 from collections import defaultdict
+from pathlib import Path
+from typing import Any
+from zoneinfo import ZoneInfo
+
+import yaml
+
 from dateutil.relativedelta import relativedelta
 
-from fast_flights import FlightData, Passengers, create_filter
+from fast_flights import (
+    FlightData,
+    Passengers,
+    create_filter,
+)
 
 try:
     from fast_flights import get_flights_from_filter
@@ -16,564 +28,9 @@ except ImportError:
     from fast_flights.core import get_flights_from_filter
 
 
-CONFIG_PATH = "config.yaml"
+ROOT = Path(__file__).resolve().parents[1]
+CONFIG_PATH = ROOT / "config.yaml"
 
-
-# ============================================================
-# 設定 / 路徑
-# ============================================================
-
-def load_config():
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
-
-
-def get_paths(cfg):
-    data_cfg = cfg.get("data", {})
-    return {
-        "history": data_cfg.get("history", "docs/data/history.csv"),
-        "latest": data_cfg.get("latest", "docs/data/latest.json"),
-        "state": data_cfg.get("state", "docs/data/state.json"),
-    }
-
-
-def ensure_dirs(paths):
-    for path in paths.values():
-        folder = os.path.dirname(path)
-        if folder:
-            os.makedirs(folder, exist_ok=True)
-
-
-# ============================================================
-# 滾動一年 + 每條航線自己的任務表
-# ============================================================
-
-def rolling_dates(months_ahead):
-    """
-    每次執行都從「今天」開始，到今天 + months_ahead 個月。
-    因此搜尋區間每天自動往前滾，不需要手動改日期。
-    """
-    today = datetime.date.today()
-    end_date = today + relativedelta(months=months_ahead)
-
-    dates = []
-    current = today
-
-    while current <= end_date:
-        dates.append(current)
-        current += datetime.timedelta(days=1)
-
-    return dates
-
-
-def stay_days_list(cfg):
-    stay_cfg = cfg.get("stay_duration", {})
-    min_days = int(stay_cfg.get("min_days", 5))
-    max_days = int(stay_cfg.get("max_days", 15))
-    step_days = int(stay_cfg.get("step_days", 1))
-
-    if min_days <= 0:
-        raise ValueError("stay_duration.min_days 必須大於 0")
-    if max_days < min_days:
-        raise ValueError("stay_duration.max_days 不能小於 min_days")
-    if step_days <= 0:
-        raise ValueError("stay_duration.step_days 必須大於 0")
-
-    return list(range(min_days, max_days + 1, step_days))
-
-
-def route_keys(cfg):
-    origins = cfg.get("origins", ["TPE"])
-    destinations = cfg.get("destinations", [])
-
-    if not destinations:
-        raise ValueError("config.yaml 的 destinations 不能是空的")
-
-    return [
-        (origin, destination)
-        for origin in origins
-        for destination in destinations
-    ]
-
-
-def build_tasks_by_route(cfg):
-    """
-    每個目的地建立自己的完整任務表：
-        今天～未來一年 × 5～15 天
-
-    之後 main() 不再從一條大 list 連續切 100 筆，
-    而是對每個目的地公平分配查詢配額。
-    """
-    months_ahead = int(cfg.get("search_months_ahead", 12))
-    dates = rolling_dates(months_ahead)
-    stays = stay_days_list(cfg)
-
-    tasks_by_route = {}
-
-    for origin, destination in route_keys(cfg):
-        key = f"{origin}|{destination}"
-        tasks = []
-
-        for departure_date in dates:
-            for stay_days in stays:
-                return_date = departure_date + datetime.timedelta(days=stay_days)
-
-                tasks.append({
-                    "origin": origin,
-                    "destination": destination,
-                    "departure_date": departure_date.isoformat(),
-                    "return_date": return_date.isoformat(),
-                    "stay_days": stay_days,
-                })
-
-        tasks_by_route[key] = tasks
-
-    return tasks_by_route
-
-
-def grid_signature(cfg):
-    """
-    搜尋條件改變時，自動判斷舊 state 已不適用並重置游標。
-    """
-    payload = {
-        "origins": cfg.get("origins", ["TPE"]),
-        "destinations": cfg.get("destinations", []),
-        "months": int(cfg.get("search_months_ahead", 12)),
-        "stays": stay_days_list(cfg),
-        "adults": int(cfg.get("adults", 1)),
-        "seat": str(cfg.get("seat", "economy")),
-        "direct_only": bool(cfg.get("direct_only", True)),
-    }
-
-    text = json.dumps(payload, ensure_ascii=False, sort_keys=True)
-    return hashlib.sha1(text.encode("utf-8")).hexdigest()
-
-
-# ============================================================
-# 公平輪詢 state
-# ============================================================
-
-def fresh_state(cfg):
-    return {
-        "version": 3,
-        "grid_signature": grid_signature(cfg),
-        "grid_start_date": datetime.date.today().isoformat(),
-        "next_index_by_route": {},
-        "extra_rotation": 0,
-    }
-
-
-def load_state(cfg, state_path):
-    """
-    新版 state 使用每條航線獨立游標：
-      TPE|NRT -> index
-      TPE|HND -> index
-      ...
-
-    如果是舊版 state（只有 next_index）或 config 改變，
-    自動重置，不需要手動刪 state.json。
-    """
-    state = fresh_state(cfg)
-
-    if not os.path.exists(state_path):
-        return state
-
-    try:
-        with open(state_path, "r", encoding="utf-8") as f:
-            old = json.load(f)
-
-        if old.get("grid_signature") != state["grid_signature"]:
-            print("ℹ️ 搜尋設定已改變，公平輪詢游標自動重置")
-            return state
-
-        if not isinstance(old.get("next_index_by_route"), dict):
-            print("ℹ️ 偵測到舊版 state.json，公平輪詢游標自動重置")
-            return state
-
-        state["next_index_by_route"] = {
-            str(k): int(v)
-            for k, v in old.get("next_index_by_route", {}).items()
-        }
-        state["extra_rotation"] = int(old.get("extra_rotation", 0))
-
-        # 滾動日期每天會往前移一天。
-        # 為了讓游標仍指向接近原本的「絕對日期」，將游標同步往前調整。
-        old_start_text = old.get("grid_start_date")
-        if old_start_text:
-            old_start = datetime.date.fromisoformat(old_start_text)
-            today = datetime.date.today()
-            shifted_days = (today - old_start).days
-
-            if shifted_days > 0:
-                per_day = len(stay_days_list(cfg))
-                shift_slots = shifted_days * per_day
-
-                for key in list(state["next_index_by_route"].keys()):
-                    state["next_index_by_route"][key] = max(
-                        0,
-                        state["next_index_by_route"][key] - shift_slots
-                    )
-
-        state["grid_start_date"] = datetime.date.today().isoformat()
-        return state
-
-    except Exception as exc:
-        print(f"⚠️ state.json 讀取失敗，將重新開始：{exc}")
-        return state
-
-
-def save_state(state, state_path):
-    state["grid_start_date"] = datetime.date.today().isoformat()
-
-    with open(state_path, "w", encoding="utf-8") as f:
-        json.dump(state, f, ensure_ascii=False, indent=2)
-
-
-def build_fair_batch(cfg, tasks_by_route, state):
-    """
-    8 個目的地公平輪詢。
-
-    例如 max_checks_per_run = 96：
-      8 個目的地 -> 每個目的地 12 組。
-
-    如果 max_checks_per_run = 100：
-      每個目的地先 12 組，剩下 4 組輪流分配；
-      下一次從不同目的地開始分額外配額，長期仍然公平。
-    """
-    keys = list(tasks_by_route.keys())
-    route_count = len(keys)
-
-    if route_count == 0:
-        return [], {}, 0
-
-    batch_size = max(route_count, int(cfg.get("max_checks_per_run", 96)))
-    base = batch_size // route_count
-    remainder = batch_size % route_count
-
-    rotation = int(state.get("extra_rotation", 0)) % route_count
-
-    quotas = {key: base for key in keys}
-
-    for i in range(remainder):
-        key = keys[(rotation + i) % route_count]
-        quotas[key] += 1
-
-    selected_by_route = {}
-    next_indexes = {}
-
-    for key in keys:
-        tasks = tasks_by_route[key]
-
-        if not tasks:
-            selected_by_route[key] = []
-            next_indexes[key] = 0
-            continue
-
-        start = int(state["next_index_by_route"].get(key, 0)) % len(tasks)
-        quota = quotas[key]
-
-        picked = [
-            tasks[(start + offset) % len(tasks)]
-            for offset in range(quota)
-        ]
-
-        selected_by_route[key] = picked
-        next_indexes[key] = (start + quota) % len(tasks)
-
-    # 真正執行時也交錯查詢：NRT 一筆、HND 一筆、KIX 一筆……
-    # 避免前半段全打同一個目的地。
-    selected = []
-    max_quota = max(quotas.values())
-
-    execution_keys = [
-        keys[(rotation + i) % route_count]
-        for i in range(route_count)
-    ]
-
-    for slot in range(max_quota):
-        for key in execution_keys:
-            rows = selected_by_route[key]
-            if slot < len(rows):
-                selected.append(rows[slot])
-
-    next_rotation = (
-        (rotation + remainder) % route_count
-        if remainder
-        else (rotation + 1) % route_count
-    )
-
-    return selected, next_indexes, next_rotation
-
-
-# ============================================================
-# 價格 / 航班資料解析
-# ============================================================
-
-def parse_price(raw_price):
-    """
-    強制避免美元數字被誤當成新台幣。
-    """
-    if raw_price is None:
-        return None
-
-    if isinstance(raw_price, (int, float)):
-        value = int(raw_price)
-        return value if value >= 1000 else None
-
-    text = str(raw_price).strip()
-
-    if not text:
-        return None
-
-    lower = text.lower()
-
-    if "price unavailable" in lower or "check price" in lower:
-        return None
-
-    # "$250" 丟掉；"NT$8,525" 接受。
-    if "$" in text and "NT$" not in text.upper():
-        return None
-
-    digits = "".join(ch for ch in text if ch.isdigit())
-
-    if not digits:
-        return None
-
-    value = int(digits)
-    return value if value >= 1000 else None
-
-
-def clean_text(value):
-    if value is None:
-        return None
-
-    text = str(value).strip()
-
-    if not text or text.lower() in {
-        "none", "null", "unknown", "n/a", "nan"
-    }:
-        return None
-
-    return text
-
-
-def safe_int(value):
-    if value is None or value == "":
-        return None
-
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def flight_option(flight):
-    return {
-        "price": parse_price(getattr(flight, "price", None)),
-        "airline": clean_text(getattr(flight, "name", None)),
-        "departure": clean_text(getattr(flight, "departure", None)),
-        "arrival": clean_text(getattr(flight, "arrival", None)),
-        "duration": clean_text(getattr(flight, "duration", None)),
-        "stops": safe_int(getattr(flight, "stops", None)),
-    }
-
-
-def option_identity(option):
-    return (
-        option.get("price"),
-        option.get("airline"),
-        option.get("departure"),
-        option.get("arrival"),
-        option.get("duration"),
-        option.get("stops"),
-    )
-
-
-def same_price_options(candidates):
-    """
-    找出「最低價格」完全相同的所有可辨識航班，
-    讓網頁把不同航空公司 / 不同起飛時間逐一列出。
-    """
-    prices = [
-        parse_price(getattr(f, "price", None))
-        for f in candidates
-    ]
-    prices = [p for p in prices if p is not None]
-
-    if not prices:
-        return None, []
-
-    minimum = min(prices)
-
-    options = []
-    seen = set()
-
-    for flight in candidates:
-        if parse_price(getattr(flight, "price", None)) != minimum:
-            continue
-
-        option = flight_option(flight)
-
-        # 完全沒有航空公司和時間的項目不另外列成「可選航班」。
-        if not (
-            option.get("airline")
-            or option.get("departure")
-            or option.get("arrival")
-        ):
-            continue
-
-        identity = option_identity(option)
-
-        if identity in seen:
-            continue
-
-        seen.add(identity)
-        options.append(option)
-
-    # 航空公司 + 起飛 + 抵達資料越完整，排越前面。
-    def completeness(opt):
-        return sum(
-            bool(opt.get(k))
-            for k in ("airline", "departure", "arrival")
-        )
-
-    options.sort(
-        key=lambda opt: (
-            -completeness(opt),
-            str(opt.get("airline") or ""),
-            str(opt.get("departure") or ""),
-        )
-    )
-
-    return minimum, options
-
-
-# ============================================================
-# Google Flights 查詢
-# ============================================================
-
-def query_google(task, cfg):
-    adults = int(cfg.get("adults", 1))
-    seat = str(cfg.get("seat", "economy"))
-    direct_only = bool(cfg.get("direct_only", True))
-
-    flight_filter = create_filter(
-        flight_data=[
-            FlightData(
-                date=task["departure_date"],
-                from_airport=task["origin"],
-                to_airport=task["destination"],
-            ),
-            FlightData(
-                date=task["return_date"],
-                from_airport=task["destination"],
-                to_airport=task["origin"],
-            ),
-        ],
-        trip="round-trip",
-        passengers=Passengers(adults=adults),
-        seat=seat,
-        max_stops=0 if direct_only else None,
-    )
-
-    return get_flights_from_filter(
-        flight_filter,
-        currency="TWD",
-    )
-
-
-def search_one(task, cfg):
-    """
-    如果第一輪有價格、但完全抓不到航空公司/時間，
-    可依 config 的 metadata_retry_count 再重試。
-    """
-    retry_count = max(0, int(cfg.get("metadata_retry_count", 1)))
-    retry_delay = max(0.0, float(cfg.get("metadata_retry_delay_seconds", 1.0)))
-
-    best_result = None
-
-    for attempt in range(retry_count + 1):
-        try:
-            result = query_google(task, cfg)
-
-            flights = getattr(result, "flights", None) or []
-
-            candidates = [
-                f
-                for f in flights
-                if parse_price(getattr(f, "price", None)) is not None
-            ]
-
-            if not candidates:
-                if attempt < retry_count:
-                    time.sleep(retry_delay)
-                    continue
-                return None
-
-            minimum, options = same_price_options(candidates)
-
-            if minimum is None:
-                return None
-
-            row = {
-                "origin": task["origin"],
-                "destination": task["destination"],
-                "departure_date": task["departure_date"],
-                "return_date": task["return_date"],
-                "stay_days": task["stay_days"],
-                "price": minimum,
-                "price_raw": f"NT${minimum}",
-                "currency": "TWD",
-                "passengers": int(cfg.get("adults", 1)),
-                "flight_options_json": json.dumps(
-                    options,
-                    ensure_ascii=False,
-                ),
-                "checked_at": datetime.datetime.now().isoformat(),
-            }
-
-            best_result = row
-
-            if options:
-                if len(options) > 1:
-                    print(
-                        f"    ✅ NT${minimum:,}："
-                        f"{len(options)} 個同價航班，全部保留"
-                    )
-                return row
-
-            # 有價格但沒有 metadata，重試一次看看。
-            if attempt < retry_count:
-                print(
-                    f"    ↻ NT${minimum:,} 有價格但航空公司/時間未解析，重試..."
-                )
-                time.sleep(retry_delay)
-                continue
-
-            print(
-                f"    ⚠️ NT${minimum:,} 有價格，"
-                "但本次資料來源仍未解析出航空公司/時間"
-            )
-            return row
-
-        except Exception as exc:
-            if attempt < retry_count:
-                print(f"    ↻ 查詢失敗，重試：{exc}")
-                time.sleep(retry_delay)
-                continue
-
-            print(
-                f"    ❌ {task['origin']}->{task['destination']} "
-                f"{task['departure_date']}~{task['return_date']}：{exc}"
-            )
-            return best_result
-
-    return best_result
-
-
-# ============================================================
-# history.csv
-# ============================================================
 
 HISTORY_FIELDS = [
     "origin",
@@ -590,431 +47,2466 @@ HISTORY_FIELDS = [
 ]
 
 
-def load_history(history_path):
-    if not os.path.exists(history_path):
-        return []
+# ============================================================
+# CONFIG
+# ============================================================
 
-    rows = []
+def load_config() -> dict[str, Any]:
 
-    with open(
-        history_path,
+    with CONFIG_PATH.open(
         "r",
-        encoding="utf-8-sig",
-        newline="",
+        encoding="utf-8",
     ) as f:
-        reader = csv.DictReader(f)
 
-        for raw in reader:
-            if not raw:
-                continue
+        return yaml.safe_load(f) or {}
 
-            price = parse_price(raw.get("price"))
 
-            # 相容更舊版本的 best_price 欄位，但只接受合理 TWD 值。
-            if price is None:
-                price = parse_price(raw.get("best_price"))
+def path_from_config(
+    cfg: dict[str, Any],
+    key: str,
+) -> Path:
 
-            if price is None:
-                continue
+    path = ROOT / cfg["data"][key]
 
-            departure_date = (
-                raw.get("departure_date")
-                or raw.get("best_departure_date")
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    return path
+
+
+def stays(
+    cfg: dict[str, Any],
+) -> list[int]:
+
+    settings = cfg.get(
+        "stay_duration",
+        {},
+    )
+
+    minimum = int(
+        settings.get(
+            "min_days",
+            5,
+        )
+    )
+
+    maximum = int(
+        settings.get(
+            "max_days",
+            15,
+        )
+    )
+
+    step = int(
+        settings.get(
+            "step_days",
+            1,
+        )
+    )
+
+    return list(
+        range(
+            minimum,
+            maximum + 1,
+            step,
+        )
+    )
+
+
+# ============================================================
+# TASK KEY
+# ============================================================
+
+def route_key(
+    origin: str,
+    destination: str,
+) -> str:
+
+    return f"{origin}|{destination}"
+
+
+def task_key(
+    task: dict[str, Any],
+) -> tuple[str, str, str, str, int]:
+
+    return (
+        task["origin"],
+        task["destination"],
+        task["departure_date"],
+        task["return_date"],
+        int(task["stay_days"]),
+    )
+
+
+# ============================================================
+# BUILD SEARCH GRID
+# ============================================================
+
+def build_tasks(
+    cfg: dict[str, Any],
+    start: dt.date,
+    end: dt.date,
+) -> dict[str, list[dict[str, Any]]]:
+
+    result = {}
+
+    stay_list = stays(cfg)
+
+    for origin in cfg["origins"]:
+
+        for destination in cfg["destinations"]:
+
+            rk = route_key(
+                origin,
+                destination,
             )
-            return_date = (
-                raw.get("return_date")
-                or raw.get("best_return_date")
-            )
-            stay_days = (
-                raw.get("stay_days")
-                or raw.get("best_stay_days")
-            )
 
-            # 舊資料若沒有 options，嘗試從舊欄位組成一個 option。
-            options_json = raw.get("flight_options_json", "")
+            rows = []
 
-            if not options_json:
-                airline = raw.get("airline")
-                departure = raw.get("departure") or raw.get("dep_time")
-                arrival = raw.get("arrival") or raw.get("arr_time")
-                duration = raw.get("duration")
+            total_days = (
+                end - start
+            ).days
 
-                if airline or departure or arrival:
-                    options_json = json.dumps(
-                        [{
-                            "price": price,
-                            "airline": airline or None,
-                            "departure": departure or None,
-                            "arrival": arrival or None,
-                            "duration": duration or None,
-                            "stops": safe_int(raw.get("stops")),
-                        }],
-                        ensure_ascii=False,
+            for i in range(
+                total_days + 1
+            ):
+
+                departure = (
+                    start
+                    + dt.timedelta(days=i)
+                )
+
+                for stay in stay_list:
+
+                    return_date = (
+                        departure
+                        + dt.timedelta(
+                            days=stay
+                        )
                     )
 
-            row = {
-                "origin": raw.get("origin", ""),
-                "destination": raw.get("destination", ""),
-                "departure_date": departure_date or "",
-                "return_date": return_date or "",
-                "stay_days": safe_int(stay_days),
-                "price": price,
-                "price_raw": raw.get("price_raw") or f"NT${price}",
-                "currency": "TWD",
-                "passengers": safe_int(raw.get("passengers")) or 1,
-                "flight_options_json": options_json,
-                "checked_at": raw.get("checked_at") or raw.get("last_checked_at") or "",
-            }
+                    rows.append(
+                        {
+                            "origin": origin,
+                            "destination": destination,
+                            "departure_date":
+                                departure.isoformat(),
+                            "return_date":
+                                return_date.isoformat(),
+                            "stay_days": stay,
+                        }
+                    )
 
-            if not row["origin"] or not row["destination"]:
-                continue
-            if not row["departure_date"] or not row["return_date"]:
-                continue
-            if row["stay_days"] is None:
-                continue
+            result[rk] = rows
 
-            rows.append(row)
-
-    return rows
+    return result
 
 
-def save_history(history, history_path):
-    with open(
-        history_path,
-        "w",
-        newline="",
-        encoding="utf-8-sig",
-    ) as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=HISTORY_FIELDS,
-            extrasaction="ignore",
-        )
-        writer.writeheader()
-        writer.writerows(history)
+# ============================================================
+# STATE
+# ============================================================
+
+def signature(
+    cfg: dict[str, Any],
+) -> str:
+
+    content = {
+
+        "origins":
+            cfg.get(
+                "origins",
+                [],
+            ),
+
+        "destinations":
+            cfg.get(
+                "destinations",
+                [],
+            ),
+
+        "months":
+            cfg.get(
+                "search_months_ahead",
+                12,
+            ),
+
+        "near_days":
+            cfg.get(
+                "near_term_days",
+                90,
+            ),
+
+        "stay":
+            cfg.get(
+                "stay_duration",
+                {},
+            ),
+
+        "adults":
+            cfg.get(
+                "adults",
+                1,
+            ),
+
+        "seat":
+            cfg.get(
+                "seat",
+                "economy",
+            ),
+
+        "direct_only":
+            cfg.get(
+                "direct_only",
+                True,
+            ),
+    }
+
+    raw = json.dumps(
+        content,
+        sort_keys=True,
+        ensure_ascii=False,
+    ).encode()
+
+    return hashlib.sha256(
+        raw
+    ).hexdigest()[:20]
 
 
-def parse_options(raw):
-    if not raw:
-        return []
+def new_state(
+    cfg: dict[str, Any],
+    today: dt.date,
+    routes: list[str],
+) -> dict[str, Any]:
+
+    return {
+
+        "version": 5,
+
+        "grid_signature":
+            signature(cfg),
+
+        "grid_start_date":
+            today.isoformat(),
+
+        "near_cursor_by_route":
+            {
+                route: 0
+                for route in routes
+            },
+
+        "annual_cursor_by_route":
+            {
+                route: 0
+                for route in routes
+            },
+
+        "near_rotation": 0,
+
+        "annual_rotation": 0,
+
+        "total_attempts": 0,
+    }
+
+
+def load_state(
+    cfg: dict[str, Any],
+    path: Path,
+    today: dt.date,
+    routes: list[str],
+) -> dict[str, Any]:
+
+    fresh = new_state(
+        cfg,
+        today,
+        routes,
+    )
+
+    if not path.exists():
+
+        return fresh
 
     try:
-        result = json.loads(raw)
 
-        if isinstance(result, list):
-            return result
+        state = json.loads(
+            path.read_text(
+                encoding="utf-8"
+            )
+        )
+
     except Exception:
+
+        return fresh
+
+    if (
+        state.get("version") != 5
+        or
+        state.get(
+            "grid_signature"
+        ) != signature(cfg)
+    ):
+
+        return fresh
+
+    try:
+
+        old_date = (
+            dt.date.fromisoformat(
+                state.get(
+                    "grid_start_date",
+                    today.isoformat(),
+                )
+            )
+        )
+
+        shift = (
+            today - old_date
+        ).days
+
+    except Exception:
+
+        shift = 0
+
+    # 每天日期窗口會往前移。
+    # 因此 cursor 也需要扣除已過期日期的組合。
+    if shift:
+
+        per_day = len(
+            stays(cfg)
+        )
+
+        for state_name in (
+            "near_cursor_by_route",
+            "annual_cursor_by_route",
+        ):
+
+            cursor_map = (
+                state.setdefault(
+                    state_name,
+                    {},
+                )
+            )
+
+            for route in routes:
+
+                value = int(
+                    cursor_map.get(
+                        route,
+                        0,
+                    )
+                )
+
+                if shift > 0:
+
+                    value = max(
+                        0,
+                        value
+                        -
+                        shift * per_day,
+                    )
+
+                else:
+
+                    value += (
+                        abs(shift)
+                        *
+                        per_day
+                    )
+
+                cursor_map[route] = value
+
+    state[
+        "grid_start_date"
+    ] = today.isoformat()
+
+    for state_name in (
+        "near_cursor_by_route",
+        "annual_cursor_by_route",
+    ):
+
+        state.setdefault(
+            state_name,
+            {},
+        )
+
+        for route in routes:
+
+            state[
+                state_name
+            ].setdefault(
+                route,
+                0,
+            )
+
+    return state
+
+
+# ============================================================
+# FAIR QUOTA
+# ============================================================
+
+def fair_quotas(
+    total: int,
+    routes: list[str],
+    rotation: int,
+) -> tuple[
+    dict[str, int],
+    int,
+]:
+
+    base, extra = divmod(
+        max(
+            0,
+            total,
+        ),
+        len(routes),
+    )
+
+    quota = {
+        route: base
+        for route in routes
+    }
+
+    for i in range(extra):
+
+        route = routes[
+            (
+                rotation + i
+            )
+            %
+            len(routes)
+        ]
+
+        quota[route] += 1
+
+    next_rotation = (
+        rotation + extra
+    ) % len(routes)
+
+    return (
+        quota,
+        next_rotation,
+    )
+
+
+# ============================================================
+# PICK TASKS
+# ============================================================
+
+def pick_by_route(
+    pools:
+        dict[
+            str,
+            list[
+                dict[
+                    str,
+                    Any,
+                ]
+            ],
+        ],
+    cursors:
+        dict[str, int],
+    quotas:
+        dict[str, int],
+    used:
+        set[
+            tuple[
+                str,
+                str,
+                str,
+                str,
+                int,
+            ]
+        ],
+    track: str,
+):
+
+    chosen = {
+        route: []
+        for route in pools
+    }
+
+    for route, tasks in (
+        pools.items()
+    ):
+
+        if not tasks:
+
+            continue
+
+        index = (
+            int(
+                cursors.get(
+                    route,
+                    0,
+                )
+            )
+            %
+            len(tasks)
+        )
+
+        scanned = 0
+
+        while (
+            len(
+                chosen[route]
+            )
+            <
+            quotas.get(
+                route,
+                0,
+            )
+            and
+            scanned
+            <
+            len(tasks)
+        ):
+
+            task = tasks[index]
+
+            index = (
+                index + 1
+            ) % len(tasks)
+
+            scanned += 1
+
+            key = task_key(
+                task
+            )
+
+            # 避免近期軌與全年軌
+            # 在同一次執行查同一組日期
+            if key in used:
+
+                continue
+
+            item = dict(task)
+
+            item[
+                "track"
+            ] = track
+
+            chosen[
+                route
+            ].append(
+                item
+            )
+
+            used.add(
+                key
+            )
+
+        cursors[
+            route
+        ] = index
+
+    return chosen
+
+
+# ============================================================
+# DUAL TRACK
+# ============================================================
+
+def build_dual_track_batch(
+    cfg: dict[str, Any],
+    state: dict[str, Any],
+    today: dt.date,
+):
+
+    annual_end = (
+        today
+        +
+        relativedelta(
+            months=int(
+                cfg.get(
+                    "search_months_ahead",
+                    12,
+                )
+            )
+        )
+    )
+
+    near_end = min(
+
+        annual_end,
+
+        today
+        +
+        dt.timedelta(
+            days=int(
+                cfg.get(
+                    "near_term_days",
+                    90,
+                )
+            )
+        ),
+    )
+
+    annual_pool = (
+        build_tasks(
+            cfg,
+            today,
+            annual_end,
+        )
+    )
+
+    near_pool = (
+        build_tasks(
+            cfg,
+            today,
+            near_end,
+        )
+    )
+
+    routes = list(
+        annual_pool.keys()
+    )
+
+    near_quota, next_rotation = (
+        fair_quotas(
+
+            int(
+                cfg.get(
+                    "near_checks_per_run",
+                    96,
+                )
+            ),
+
+            routes,
+
+            int(
+                state.get(
+                    "near_rotation",
+                    0,
+                )
+            ),
+        )
+    )
+
+    state[
+        "near_rotation"
+    ] = next_rotation
+
+    annual_quota, next_rotation = (
+        fair_quotas(
+
+            int(
+                cfg.get(
+                    "annual_checks_per_run",
+                    192,
+                )
+            ),
+
+            routes,
+
+            int(
+                state.get(
+                    "annual_rotation",
+                    0,
+                )
+            ),
+        )
+    )
+
+    state[
+        "annual_rotation"
+    ] = next_rotation
+
+    used = set()
+
+    near_selected = (
+        pick_by_route(
+            near_pool,
+            state[
+                "near_cursor_by_route"
+            ],
+            near_quota,
+            used,
+            "near",
+        )
+    )
+
+    annual_selected = (
+        pick_by_route(
+            annual_pool,
+            state[
+                "annual_cursor_by_route"
+            ],
+            annual_quota,
+            used,
+            "annual",
+        )
+    )
+
+    batch = []
+
+    maximum = max(
+
+        max(
+            len(
+                near_selected[
+                    route
+                ]
+            ),
+            len(
+                annual_selected[
+                    route
+                ]
+            ),
+        )
+
+        for route
+        in routes
+    )
+
+    # 交錯執行：
+    # NRT 近期 → NRT 全年 →
+    # HND 近期 → HND 全年 ...
+    for index in range(
+        maximum
+    ):
+
+        for route in routes:
+
+            if (
+                index
+                <
+                len(
+                    near_selected[
+                        route
+                    ]
+                )
+            ):
+
+                batch.append(
+                    near_selected[
+                        route
+                    ][index]
+                )
+
+            if (
+                index
+                <
+                len(
+                    annual_selected[
+                        route
+                    ]
+                )
+            ):
+
+                batch.append(
+                    annual_selected[
+                        route
+                    ][index]
+                )
+
+    total_grid = sum(
+        len(rows)
+        for rows
+        in annual_pool.values()
+    )
+
+    return (
+        batch,
+        near_quota,
+        annual_quota,
+        total_grid,
+        annual_end,
+        near_end,
+    )
+
+
+# ============================================================
+# PRICE
+# ============================================================
+
+def parse_price(
+    value: Any,
+) -> int | None:
+
+    if value is None:
+
+        return None
+
+    if isinstance(
+        value,
+        (int, float),
+    ) and not isinstance(
+        value,
+        bool,
+    ):
+
+        number = int(
+            value
+        )
+
+        if number >= 1000:
+
+            return number
+
+        return None
+
+    text = str(
+        value
+    ).strip()
+
+    upper = (
+        text.upper()
+    )
+
+    if not text:
+
+        return None
+
+    if any(
+        phrase in upper
+        for phrase in (
+            "UNAVAILABLE",
+            "CHECK PRICE",
+        )
+    ):
+
+        return None
+
+    # 很重要：
+    # 不把 US$220 誤當成 NT$220
+    if (
+        "NT$"
+        not in upper
+        and
+        "TWD"
+        not in upper
+    ):
+
+        return None
+
+    digits = re.sub(
+        r"[^0-9]",
+        "",
+        text,
+    )
+
+    if not digits:
+
+        return None
+
+    number = int(
+        digits
+    )
+
+    if number < 1000:
+
+        return None
+
+    return number
+
+
+# ============================================================
+# FAST-FLIGHTS
+# ============================================================
+
+def fetch_candidates(
+    task: dict[str, Any],
+    cfg: dict[str, Any],
+):
+
+    kwargs = {
+
+        "flight_data": [
+
+            FlightData(
+                date=
+                    task[
+                        "departure_date"
+                    ],
+                from_airport=
+                    task[
+                        "origin"
+                    ],
+                to_airport=
+                    task[
+                        "destination"
+                    ],
+            ),
+
+            FlightData(
+                date=
+                    task[
+                        "return_date"
+                    ],
+                from_airport=
+                    task[
+                        "destination"
+                    ],
+                to_airport=
+                    task[
+                        "origin"
+                    ],
+            ),
+        ],
+
+        "trip":
+            "round-trip",
+
+        "seat":
+            cfg.get(
+                "seat",
+                "economy",
+            ),
+
+        "passengers":
+            Passengers(
+
+                adults=int(
+                    cfg.get(
+                        "adults",
+                        1,
+                    )
+                ),
+
+                children=int(
+                    cfg.get(
+                        "children",
+                        0,
+                    )
+                ),
+
+                infants_in_seat=int(
+                    cfg.get(
+                        "infants_in_seat",
+                        0,
+                    )
+                ),
+
+                infants_on_lap=int(
+                    cfg.get(
+                        "infants_on_lap",
+                        0,
+                    )
+                ),
+            ),
+    }
+
+    if cfg.get(
+        "direct_only",
+        True,
+    ):
+
+        kwargs[
+            "max_stops"
+        ] = 0
+
+    search_filter = (
+        create_filter(
+            **kwargs
+        )
+    )
+
+    result = (
+        get_flights_from_filter(
+            search_filter,
+            currency="TWD",
+        )
+    )
+
+    flights = (
+        getattr(
+            result,
+            "flights",
+            None,
+        )
+        or
+        []
+    )
+
+    candidates = []
+
+    for flight in flights:
+
+        raw_price = (
+            getattr(
+                flight,
+                "price",
+                None,
+            )
+        )
+
+        price = (
+            parse_price(
+                raw_price
+            )
+        )
+
+        if price is None:
+
+            continue
+
+        candidates.append(
+            {
+                "price":
+                    price,
+
+                "price_raw":
+                    str(
+                        raw_price
+                        or
+                        ""
+                    ),
+
+                "airline":
+                    getattr(
+                        flight,
+                        "name",
+                        None,
+                    ),
+
+                "departure":
+                    getattr(
+                        flight,
+                        "departure",
+                        None,
+                    ),
+
+                "arrival":
+                    getattr(
+                        flight,
+                        "arrival",
+                        None,
+                    ),
+
+                "duration":
+                    getattr(
+                        flight,
+                        "duration",
+                        None,
+                    ),
+
+                "stops":
+                    getattr(
+                        flight,
+                        "stops",
+                        None,
+                    ),
+            }
+        )
+
+    return candidates
+
+
+# ============================================================
+# SAME PRICE OPTIONS
+# ============================================================
+
+def option_key(
+    option: dict[str, Any],
+):
+
+    return tuple(
+        str(
+            option.get(key)
+            or
+            ""
+        )
+        for key
+        in (
+            "airline",
+            "departure",
+            "arrival",
+            "duration",
+            "stops",
+        )
+    )
+
+
+def cheapest(
+    candidates:
+        list[
+            dict[
+                str,
+                Any,
+            ]
+        ],
+):
+
+    if not candidates:
+
+        return (
+            None,
+            "",
+            [],
+        )
+
+    lowest = min(
+        int(
+            item["price"]
+        )
+        for item
+        in candidates
+    )
+
+    same_price = [
+
+        item
+        for item
+        in candidates
+        if
+        int(
+            item["price"]
+        )
+        ==
+        lowest
+    ]
+
+    options = []
+
+    seen = set()
+
+    for item in same_price:
+
+        # 有價格但完全沒 metadata
+        # 仍然保留價格，
+        # 但不偽造航空公司
+        if not any(
+            item.get(key)
+            for key
+            in (
+                "airline",
+                "departure",
+                "arrival",
+            )
+        ):
+
+            continue
+
+        option = {
+
+            "airline":
+                item.get(
+                    "airline"
+                ),
+
+            "departure":
+                item.get(
+                    "departure"
+                ),
+
+            "arrival":
+                item.get(
+                    "arrival"
+                ),
+
+            "duration":
+                item.get(
+                    "duration"
+                ),
+
+            "stops":
+                item.get(
+                    "stops"
+                ),
+        }
+
+        key = option_key(
+            option
+        )
+
+        if key in seen:
+
+            continue
+
+        seen.add(
+            key
+        )
+
+        options.append(
+            option
+        )
+
+    raw_price = next(
+
+        (
+            item[
+                "price_raw"
+            ]
+            for item
+            in same_price
+            if item.get(
+                "price_raw"
+            )
+        ),
+
+        f"NT${lowest}",
+    )
+
+    return (
+        lowest,
+        raw_price,
+        options,
+    )
+
+
+# ============================================================
+# SEARCH ONE
+# ============================================================
+
+def search_one(
+    task: dict[str, Any],
+    cfg: dict[str, Any],
+):
+
+    all_candidates = []
+
+    retries = int(
+        cfg.get(
+            "metadata_retry_count",
+            1,
+        )
+    )
+
+    retry_delay = float(
+        cfg.get(
+            "metadata_retry_delay_seconds",
+            1.0,
+        )
+    )
+
+    for attempt in range(
+        retries + 1
+    ):
+
+        try:
+
+            candidates = (
+                fetch_candidates(
+                    task,
+                    cfg,
+                )
+            )
+
+            all_candidates.extend(
+                candidates
+            )
+
+        except Exception as exc:
+
+            print(
+                "  ERROR:",
+                type(exc).__name__,
+                str(exc),
+            )
+
+        (
+            price,
+            raw_price,
+            options,
+        ) = cheapest(
+            all_candidates
+        )
+
+        if (
+            price is not None
+            and
+            (
+                options
+                or
+                attempt == retries
+            )
+        ):
+
+            return {
+
+                "origin":
+                    task[
+                        "origin"
+                    ],
+
+                "destination":
+                    task[
+                        "destination"
+                    ],
+
+                "departure_date":
+                    task[
+                        "departure_date"
+                    ],
+
+                "return_date":
+                    task[
+                        "return_date"
+                    ],
+
+                "stay_days":
+                    task[
+                        "stay_days"
+                    ],
+
+                "price":
+                    price,
+
+                "price_raw":
+                    raw_price,
+
+                "currency":
+                    "TWD",
+
+                "passengers":
+                    int(
+                        cfg.get(
+                            "adults",
+                            1,
+                        )
+                    ),
+
+                "flight_options_json":
+                    json.dumps(
+                        options,
+                        ensure_ascii=False,
+                        separators=(
+                            ",",
+                            ":",
+                        ),
+                    ),
+
+                "checked_at":
+                    dt.datetime.now(
+                        dt.timezone.utc
+                    )
+                    .replace(
+                        microsecond=0
+                    )
+                    .isoformat(),
+            }
+
+        if attempt < retries:
+
+            time.sleep(
+                retry_delay
+            )
+
+    return None
+
+
+# ============================================================
+# HISTORY
+# ============================================================
+
+def parse_options(
+    raw: Any,
+):
+
+    try:
+
+        if isinstance(
+            raw,
+            list,
+        ):
+
+            value = raw
+
+        else:
+
+            value = json.loads(
+                raw
+                or
+                "[]"
+            )
+
+        if isinstance(
+            value,
+            list,
+        ):
+
+            return value
+
+    except Exception:
+
         pass
 
     return []
 
 
-def merge_options(option_lists, target_price):
-    """
-    同一日期組合重複查價時：
-    若價格相同，把不同輪抓到的航空公司/時間合併起來，
-    可降低某一次解析失敗造成的「資料未提供」。
-    """
-    merged = []
-    seen = set()
+def load_history(
+    path: Path,
+):
 
-    for options in option_lists:
-        for option in options:
-            option_price = parse_price(option.get("price"))
+    if (
+        not path.exists()
+        or
+        path.stat().st_size == 0
+    ):
 
-            if option_price is not None and option_price != target_price:
-                continue
+        return []
 
-            identity = option_identity(option)
+    with path.open(
+        "r",
+        encoding="utf-8-sig",
+        newline="",
+    ) as file:
 
-            if identity in seen:
-                continue
-
-            seen.add(identity)
-            merged.append(option)
-
-    return merged
+        return list(
+            csv.DictReader(
+                file
+            )
+        )
 
 
-# ============================================================
-# 產生可供網頁篩選的所有「目前候選優惠」
-# ============================================================
+def append_history(
+    path: Path,
+    rows: list[
+        dict[
+            str,
+            Any,
+        ]
+    ],
+):
 
-def checked_at_value(row):
-    try:
-        return datetime.datetime.fromisoformat(str(row.get("checked_at", "")))
-    except Exception:
-        return datetime.datetime.min
+    if not rows:
 
+        return
 
-def build_dashboard_data(history, cfg):
-    """
-    不再只輸出「每個目的地一張最低價」。
-
-    改成：
-      1. 每個 出發地+目的地+去程日+回程日+停留天數，
-         取「最近一次」查到的價格。
-      2. 計算該航線的相對平均價與 Cheap Score。
-      3. 輸出很多筆 deals，讓網頁自己篩：
-         目的地 / 日期 / 停留時間 / 價格 / 相對便宜程度。
-    """
-    today = datetime.date.today()
-    end_date = today + relativedelta(
-        months=int(cfg.get("search_months_ahead", 12))
+    exists = (
+        path.exists()
+        and
+        path.stat().st_size > 0
     )
 
-    valid_stays = set(stay_days_list(cfg))
-    history_days = int(cfg.get("history_days", 60))
-    cutoff = datetime.datetime.now() - datetime.timedelta(days=history_days)
+    with path.open(
+        "a",
+        encoding="utf-8",
+        newline="",
+    ) as file:
 
-    # 先只保留目前滾動一年窗口內、停留天數符合 config 的資料。
-    valid_history = []
-
-    for row in history:
-        try:
-            dep_date = datetime.date.fromisoformat(row["departure_date"])
-        except Exception:
-            continue
-
-        stay = safe_int(row.get("stay_days"))
-        price = parse_price(row.get("price"))
-
-        if price is None or stay not in valid_stays:
-            continue
-        if dep_date < today or dep_date > end_date:
-            continue
-
-        valid_history.append(row)
-
-    # 同一路線的近期價格池，用來計算「相對便宜」。
-    route_price_pool = defaultdict(list)
-
-    for row in valid_history:
-        checked = checked_at_value(row)
-
-        if checked == datetime.datetime.min or checked >= cutoff:
-            route_price_pool[
-                (row["origin"], row["destination"])
-            ].append(parse_price(row["price"]))
-
-    # 若某航線最近 history_days 沒資料，退回使用全部有效歷史。
-    all_route_prices = defaultdict(list)
-
-    for row in valid_history:
-        all_route_prices[
-            (row["origin"], row["destination"])
-        ].append(parse_price(row["price"]))
-
-    # 同一「日期組合」可能查過很多次。
-    # 取最新價格，但如果同價格的舊紀錄有更完整的航班資訊就合併。
-    combo_groups = defaultdict(list)
-
-    for row in valid_history:
-        key = (
-            row["origin"],
-            row["destination"],
-            row["departure_date"],
-            row["return_date"],
-            safe_int(row["stay_days"]),
+        writer = (
+            csv.DictWriter(
+                file,
+                fieldnames=
+                    HISTORY_FIELDS,
+                extrasaction=
+                    "ignore",
+            )
         )
-        combo_groups[key].append(row)
+
+        if not exists:
+
+            writer.writeheader()
+
+        writer.writerows(
+            rows
+        )
+
+
+# ============================================================
+# HISTORY PRICE
+# ============================================================
+
+def row_price(
+    row: dict[str, Any],
+):
+
+    try:
+
+        price = int(
+            float(
+                str(
+                    row.get(
+                        "price",
+                        "0",
+                    )
+                )
+            )
+        )
+
+        currency = str(
+            row.get(
+                "currency",
+                "TWD",
+            )
+        ).upper()
+
+        if (
+            price >= 1000
+            and
+            currency == "TWD"
+        ):
+
+            return price
+
+    except Exception:
+
+        pass
+
+    return None
+
+
+def checked_time(
+    raw: str,
+):
+
+    try:
+
+        value = (
+            dt.datetime.fromisoformat(
+                raw.replace(
+                    "Z",
+                    "+00:00",
+                )
+            )
+        )
+
+        if value.tzinfo:
+
+            return value
+
+        return value.replace(
+            tzinfo=
+                dt.timezone.utc
+        )
+
+    except Exception:
+
+        return (
+            dt.datetime.min.replace(
+                tzinfo=
+                    dt.timezone.utc
+            )
+        )
+
+
+# ============================================================
+# MERGE OPTIONS
+# ============================================================
+
+def merge_options(
+    first,
+    second,
+):
+
+    result = []
+
+    seen = set()
+
+    for option in (
+        first + second
+    ):
+
+        key = option_key(
+            option
+        )
+
+        if key in seen:
+
+            continue
+
+        seen.add(
+            key
+        )
+
+        result.append(
+            option
+        )
+
+    return result
+
+
+# ============================================================
+# LATEST COMBOS
+# ============================================================
+
+def latest_combos(
+    history,
+    cfg,
+    today,
+    annual_end,
+):
+
+    valid_routes = {
+
+        (
+            origin,
+            destination,
+        )
+
+        for origin
+        in cfg["origins"]
+
+        for destination
+        in cfg["destinations"]
+    }
+
+    valid_stays = set(
+        stays(cfg)
+    )
+
+    latest = {}
+
+    ordered_history = sorted(
+
+        history,
+
+        key=lambda row:
+            checked_time(
+                str(
+                    row.get(
+                        "checked_at",
+                        "",
+                    )
+                )
+            ),
+    )
+
+    for row in ordered_history:
+
+        price = row_price(
+            row
+        )
+
+        if price is None:
+
+            continue
+
+        if (
+            (
+                row.get(
+                    "origin"
+                ),
+                row.get(
+                    "destination"
+                ),
+            )
+            not in
+            valid_routes
+        ):
+
+            continue
+
+        try:
+
+            departure = (
+                dt.date.fromisoformat(
+                    str(
+                        row[
+                            "departure_date"
+                        ]
+                    )
+                )
+            )
+
+            stay = int(
+                row[
+                    "stay_days"
+                ]
+            )
+
+        except Exception:
+
+            continue
+
+        if (
+            departure < today
+            or
+            departure > annual_end
+            or
+            stay not in valid_stays
+        ):
+
+            continue
+
+        key = (
+
+            row[
+                "origin"
+            ],
+
+            row[
+                "destination"
+            ],
+
+            row[
+                "departure_date"
+            ],
+
+            row[
+                "return_date"
+            ],
+
+            stay,
+        )
+
+        options = (
+            parse_options(
+                row.get(
+                    "flight_options_json"
+                )
+            )
+        )
+
+        previous = (
+            latest.get(
+                key
+            )
+        )
+
+        # 如果同一日期組合價格沒變，
+        # 可以保留之前成功抓到的航空公司/時間 metadata。
+        if (
+            previous
+            and
+            row_price(
+                previous
+            )
+            ==
+            price
+        ):
+
+            options = (
+                merge_options(
+
+                    parse_options(
+                        previous.get(
+                            "flight_options_json"
+                        )
+                    ),
+
+                    options,
+                )
+            )
+
+        item = dict(
+            row
+        )
+
+        item[
+            "price"
+        ] = price
+
+        item[
+            "stay_days"
+        ] = stay
+
+        item[
+            "flight_options_json"
+        ] = json.dumps(
+
+            options,
+
+            ensure_ascii=False,
+
+            separators=(
+                ",",
+                ":",
+            ),
+        )
+
+        latest[
+            key
+        ] = item
+
+    return latest
+
+
+# ============================================================
+# BUILD LATEST.JSON
+# ============================================================
+
+def build_latest(
+    cfg,
+    history,
+    today,
+    annual_end,
+    near_end,
+    state,
+    total_grid,
+    near_quota,
+    annual_quota,
+    run_success,
+    attempted,
+):
+
+    current = (
+        latest_combos(
+            history,
+            cfg,
+            today,
+            annual_end,
+        )
+    )
+
+    grouped = defaultdict(
+        list
+    )
+
+    for row in current.values():
+
+        grouped[
+            route_key(
+                row[
+                    "origin"
+                ],
+                row[
+                    "destination"
+                ],
+            )
+        ].append(
+            row
+        )
+
+    cutoff = (
+        dt.datetime.now(
+            dt.timezone.utc
+        )
+        -
+        dt.timedelta(
+            days=int(
+                cfg.get(
+                    "history_days",
+                    60,
+                )
+            )
+        )
+    )
+
+    min_samples = int(
+        cfg.get(
+            "min_score_samples",
+            20,
+        )
+    )
 
     deals = []
 
-    for key, rows in combo_groups.items():
-        rows.sort(key=checked_at_value, reverse=True)
-        latest_row = rows[0]
+    for rows in grouped.values():
 
-        current_price = parse_price(latest_row["price"])
-        if current_price is None:
-            continue
+        recent_prices = [
 
-        # 只合併「目前同價格」的 metadata，避免把舊價格的航班錯配到新價格。
-        option_lists = [
-            parse_options(r.get("flight_options_json"))
-            for r in rows
-            if parse_price(r.get("price")) == current_price
-        ]
-
-        options = merge_options(option_lists, current_price)
-
-        route = (latest_row["origin"], latest_row["destination"])
-        pool = route_price_pool.get(route) or all_route_prices.get(route) or []
-
-        if pool:
-            average_price = sum(pool) / len(pool)
-            diff_percent = (
-                (average_price - current_price)
-                / average_price
-                * 100
+            int(
+                row[
+                    "price"
+                ]
             )
 
-            # 價格越低，Cheap Score 越高。
-            # = 此價格至少比該航線多少比例的近期報價便宜或相同。
-            at_or_above = sum(1 for p in pool if p >= current_price)
-            cheap_score = round(at_or_above / len(pool) * 100)
+            for row in rows
+
+            if checked_time(
+                str(
+                    row.get(
+                        "checked_at",
+                        "",
+                    )
+                )
+            )
+            >=
+            cutoff
+        ]
+
+        if recent_prices:
+
+            pool = recent_prices
+
         else:
-            average_price = current_price
-            diff_percent = 0.0
-            cheap_score = 50
 
-        deals.append({
-            "origin": latest_row["origin"],
-            "destination": latest_row["destination"],
-            "departure_date": latest_row["departure_date"],
-            "return_date": latest_row["return_date"],
-            "stay_days": safe_int(latest_row["stay_days"]),
-            "price": current_price,
-            "currency": "TWD",
-            "passengers": safe_int(latest_row.get("passengers")) or 1,
-            "flight_options": options,
-            "same_price_option_count": len(options),
-            "recent_average_price": round(average_price),
-            "diff_percent": round(diff_percent, 1),
-            "cheap_score": cheap_score,
-            "checked_at": latest_row.get("checked_at"),
-            "route_sample_size": len(pool),
-        })
+            pool = [
 
-    # 預設先以「相對便宜」排序。
+                int(
+                    row[
+                        "price"
+                    ]
+                )
+
+                for row
+                in rows
+            ]
+
+        if not pool:
+
+            continue
+
+        average = (
+            sum(pool)
+            /
+            len(pool)
+        )
+
+        for row in rows:
+
+            price = int(
+                row[
+                    "price"
+                ]
+            )
+
+            at_or_above = sum(
+
+                1
+
+                for other_price
+                in pool
+
+                if (
+                    other_price
+                    >=
+                    price
+                )
+            )
+
+            cheap_score = round(
+
+                at_or_above
+                /
+                len(pool)
+                *
+                100
+            )
+
+            if average:
+
+                diff_percent = (
+
+                    (
+                        average
+                        -
+                        price
+                    )
+
+                    /
+                    average
+
+                    *
+                    100
+                )
+
+            else:
+
+                diff_percent = 0
+
+            options = (
+                parse_options(
+                    row.get(
+                        "flight_options_json"
+                    )
+                )
+            )
+
+            deals.append(
+                {
+
+                    "origin":
+                        row[
+                            "origin"
+                        ],
+
+                    "destination":
+                        row[
+                            "destination"
+                        ],
+
+                    "departure_date":
+                        row[
+                            "departure_date"
+                        ],
+
+                    "return_date":
+                        row[
+                            "return_date"
+                        ],
+
+                    "stay_days":
+                        int(
+                            row[
+                                "stay_days"
+                            ]
+                        ),
+
+                    "price":
+                        price,
+
+                    "currency":
+                        "TWD",
+
+                    "passengers":
+                        int(
+                            row.get(
+                                "passengers"
+                            )
+                            or
+                            1
+                        ),
+
+                    "flight_options":
+                        options,
+
+                    "same_price_option_count":
+                        len(
+                            options
+                        ),
+
+                    "recent_average_price":
+                        round(
+                            average
+                        ),
+
+                    "diff_percent":
+                        round(
+                            diff_percent,
+                            1,
+                        ),
+
+                    "cheap_score":
+                        cheap_score,
+
+                    "score_sample_size":
+                        len(
+                            pool
+                        ),
+
+                    "score_reliable":
+                        (
+                            len(pool)
+                            >=
+                            min_samples
+                        ),
+
+                    "checked_at":
+                        row.get(
+                            "checked_at",
+                            "",
+                        ),
+                }
+            )
+
     deals.sort(
-        key=lambda d: (
-            -d["cheap_score"],
-            -d["diff_percent"],
-            d["price"],
-            d["departure_date"],
+        key=lambda deal:
+            (
+                -deal[
+                    "cheap_score"
+                ],
+                -deal[
+                    "diff_percent"
+                ],
+                deal[
+                    "price"
+                ],
+            )
+    )
+
+    limit = int(
+        cfg.get(
+            "max_deals_to_publish",
+            3000,
         )
     )
 
-    # 避免靜態 JSON 無限制長大；保留大量相對便宜候選供網頁篩選。
-    # 設為 0 代表不限筆數。
-    max_publish = int(cfg.get("max_deals_to_publish", 3000))
+    if limit > 0:
 
-    if max_publish > 0:
-        deals = deals[:max_publish]
+        deals = deals[
+            :limit
+        ]
 
-    return deals
+    return {
+
+        "generated_at":
+            dt.datetime.now(
+                dt.timezone.utc
+            )
+            .replace(
+                microsecond=0
+            )
+            .isoformat(),
+
+        "search_start_date":
+            today.isoformat(),
+
+        "search_end_date":
+            annual_end.isoformat(),
+
+        "near_term_end_date":
+            near_end.isoformat(),
+
+        "origins":
+            cfg[
+                "origins"
+            ],
+
+        "destinations":
+            cfg[
+                "destinations"
+            ],
+
+        "adults":
+            int(
+                cfg.get(
+                    "adults",
+                    1,
+                )
+            ),
+
+        "stay_min_days":
+            min(
+                stays(cfg)
+            ),
+
+        "stay_max_days":
+            max(
+                stays(cfg)
+            ),
+
+        "history_days":
+            int(
+                cfg.get(
+                    "history_days",
+                    60,
+                )
+            ),
+
+        "checked_this_run":
+            run_success,
+
+        "attempted_this_run":
+            attempted,
+
+        "near_checks_planned":
+            sum(
+                near_quota.values()
+            ),
+
+        "annual_checks_planned":
+            sum(
+                annual_quota.values()
+            ),
+
+        "total_checks_so_far":
+            int(
+                state.get(
+                    "total_attempts",
+                    0,
+                )
+            ),
+
+        "total_combos_in_grid":
+            total_grid,
+
+        "route_near_quota":
+            near_quota,
+
+        "route_annual_quota":
+            annual_quota,
+
+        "deal_count":
+            len(
+                deals
+            ),
+
+        "deals":
+            deals,
+    }
 
 
 # ============================================================
-# 主程式
+# SAVE JSON
+# ============================================================
+
+def save_json(
+    path: Path,
+    data: Any,
+):
+
+    temporary = (
+        path.with_suffix(
+            path.suffix
+            +
+            ".tmp"
+        )
+    )
+
+    temporary.write_text(
+
+        json.dumps(
+            data,
+            ensure_ascii=False,
+            indent=2,
+        ),
+
+        encoding="utf-8",
+    )
+
+    temporary.replace(
+        path
+    )
+
+
+# ============================================================
+# MAIN
 # ============================================================
 
 def main():
-    print("=== Flight Deal Watcher ===")
 
     cfg = load_config()
-    paths = get_paths(cfg)
-    ensure_dirs(paths)
 
-    tasks_by_route = build_tasks_by_route(cfg)
-    total_combos = sum(len(v) for v in tasks_by_route.values())
+    history_path = (
+        path_from_config(
+            cfg,
+            "history",
+        )
+    )
 
-    state = load_state(cfg, paths["state"])
+    latest_path = (
+        path_from_config(
+            cfg,
+            "latest",
+        )
+    )
 
-    selected, next_indexes, next_rotation = build_fair_batch(
+    state_path = (
+        path_from_config(
+            cfg,
+            "state",
+        )
+    )
+
+    timezone = ZoneInfo(
+        cfg.get(
+            "timezone",
+            "Asia/Taipei",
+        )
+    )
+
+    today = (
+        dt.datetime.now(
+            timezone
+        ).date()
+    )
+
+    routes = [
+
+        route_key(
+            origin,
+            destination,
+        )
+
+        for origin
+        in cfg["origins"]
+
+        for destination
+        in cfg["destinations"]
+    ]
+
+    state = (
+        load_state(
+            cfg,
+            state_path,
+            today,
+            routes,
+        )
+    )
+
+    (
+        batch,
+        near_quota,
+        annual_quota,
+        total_grid,
+        annual_end,
+        near_end,
+    ) = build_dual_track_batch(
         cfg,
-        tasks_by_route,
+        state,
+        today,
+    )
+
+    print(
+        "=== Flight Deal Watcher / 雙軌搜尋 ==="
+    )
+
+    print(
+        f"全年：{today} -> {annual_end}"
+    )
+
+    print(
+        f"近期：{today} -> {near_end}"
+    )
+
+    print(
+        "停留："
+        f"{min(stays(cfg))}"
+        "～"
+        f"{max(stays(cfg))}"
+        " 天"
+    )
+
+    print(
+        f"全年網格：{total_grid:,} 組"
+    )
+
+    print(
+        "本輪：近期 "
+        f"{sum(near_quota.values())}"
+        " + 全年 "
+        f"{sum(annual_quota.values())}"
+        " = "
+        f"{len(batch)} 組"
+    )
+
+    print(
+        "各目的地配額："
+    )
+
+    for route in routes:
+
+        print(
+            "  "
+            +
+            route.replace(
+                "|",
+                " -> ",
+            )
+            +
+            "：近期 "
+            +
+            str(
+                near_quota[
+                    route
+                ]
+            )
+            +
+            " / 全年 "
+            +
+            str(
+                annual_quota[
+                    route
+                ]
+            )
+        )
+
+    successful_rows = []
+
+    delay = float(
+        cfg.get(
+            "request_delay_seconds",
+            0.0,
+        )
+    )
+
+    for index, task in enumerate(
+        batch,
+        1,
+    ):
+
+        print(
+            f"[{index}/{len(batch)}] "
+            f"{task['track']:6s} "
+            f"{task['origin']}"
+            "->"
+            f"{task['destination']} "
+            f"{task['departure_date']}"
+            "~"
+            f"{task['return_date']} "
+            f"{task['stay_days']}d"
+        )
+
+        row = search_one(
+            task,
+            cfg,
+        )
+
+        state[
+            "total_attempts"
+        ] = (
+            int(
+                state.get(
+                    "total_attempts",
+                    0,
+                )
+            )
+            +
+            1
+        )
+
+        if row:
+
+            successful_rows.append(
+                row
+            )
+
+            print(
+                "  OK "
+                f"NT${row['price']:,}"
+                " / options="
+                f"{len(parse_options(row['flight_options_json']))}"
+            )
+
+        else:
+
+            print(
+                "  NO VALID RESULT"
+            )
+
+        if (
+            delay > 0
+            and
+            index < len(batch)
+        ):
+
+            time.sleep(
+                delay
+            )
+
+    append_history(
+        history_path,
+        successful_rows,
+    )
+
+    history = (
+        load_history(
+            history_path
+        )
+    )
+
+    latest = (
+        build_latest(
+            cfg,
+            history,
+            today,
+            annual_end,
+            near_end,
+            state,
+            total_grid,
+            near_quota,
+            annual_quota,
+            len(
+                successful_rows
+            ),
+            len(batch),
+        )
+    )
+
+    save_json(
+        latest_path,
+        latest,
+    )
+
+    save_json(
+        state_path,
         state,
     )
 
-    route_run_counts = defaultdict(int)
-
-    for task in selected:
-        route_run_counts[
-            f"{task['origin']}|{task['destination']}"
-        ] += 1
+    print(
+        "=== 完成 ==="
+    )
 
     print(
-        f"滾動區間：{datetime.date.today()} ～ "
-        f"{datetime.date.today() + relativedelta(months=int(cfg.get('search_months_ahead', 12)))}"
+        f"本次嘗試：{len(batch)}"
     )
+
     print(
-        f"停留時間：{min(stay_days_list(cfg))}～{max(stay_days_list(cfg))} 天"
-    )
-    print(f"全部候選組合：{total_combos}")
-    print(f"本次公平輪詢：{len(selected)} 組")
-
-    print("本次各目的地配額：")
-    for key in tasks_by_route:
-        print(f"  {key.replace('|', ' -> ')}：{route_run_counts[key]} 組")
-
-    new_rows = []
-
-    request_delay = max(
-        0.0,
-        float(cfg.get("request_delay_seconds", 0.0))
+        "成功取得價格："
+        f"{len(successful_rows)}"
     )
 
-    for idx, task in enumerate(selected, start=1):
-        print(
-            f"[{idx}/{len(selected)}] "
-            f"{task['origin']} -> {task['destination']} | "
-            f"{task['departure_date']} ~ {task['return_date']} | "
-            f"停留 {task['stay_days']} 天"
-        )
-
-        result = search_one(task, cfg)
-
-        if result:
-            new_rows.append(result)
-
-        if request_delay > 0 and idx < len(selected):
-            time.sleep(request_delay)
-
-    state["next_index_by_route"] = next_indexes
-    state["extra_rotation"] = next_rotation
-    save_state(state, paths["state"])
-
-    history = load_history(paths["history"])
-    history.extend(new_rows)
-
-    if not history:
-        print("本次沒有成功取得任何價格，資料檔不更新")
-        return
-
-    save_history(history, paths["history"])
-
-    deals = build_dashboard_data(history, cfg)
-
-    latest = {
-        "generated_at": datetime.datetime.now().isoformat(),
-        "search_start_date": datetime.date.today().isoformat(),
-        "search_end_date": (
-            datetime.date.today()
-            + relativedelta(months=int(cfg.get("search_months_ahead", 12)))
-        ).isoformat(),
-        "adults": int(cfg.get("adults", 1)),
-        "stay_min_days": min(stay_days_list(cfg)),
-        "stay_max_days": max(stay_days_list(cfg)),
-        "history_days": int(cfg.get("history_days", 60)),
-        "checked_this_run": len(new_rows),
-        "attempted_this_run": len(selected),
-        "total_checks_so_far": len(history),
-        "total_combos_in_grid": total_combos,
-        "route_checks_this_run": dict(route_run_counts),
-        "deal_count": len(deals),
-        "deals": deals,
-    }
-
-    with open(paths["latest"], "w", encoding="utf-8") as f:
-        json.dump(
-            latest,
-            f,
-            ensure_ascii=False,
-            separators=(",", ":"),
-        )
-
-    print()
-    print("=== 完成 ===")
-    print(f"本次嘗試：{len(selected)} 組")
-    print(f"本次成功：{len(new_rows)} 筆")
-    print(f"歷史累積：{len(history)} 筆")
-    print(f"網頁可篩選優惠：{len(deals)} 筆")
-    print(f"history：{paths['history']}")
-    print(f"latest：{paths['latest']}")
-    print(f"state：{paths['state']}")
+    print(
+        "網站 deals："
+        f"{len(latest['deals'])}"
+    )
 
 
 if __name__ == "__main__":
+
     main()

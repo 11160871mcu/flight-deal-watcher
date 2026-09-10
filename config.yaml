@@ -1,62 +1,63 @@
-# ============================================================
-# Flight Deal Watcher
-# 8 個目的地公平輪詢 + 未來一年滾動 + 5～15 天
-# ============================================================
-
-# 出發機場
 origins:
   - TPE
 
-# 8 個目的地：每次排程都公平分配查詢配額
 destinations:
-  - NRT   # 東京成田
-  - HND   # 東京羽田
-  - KIX   # 大阪關西
-  - FUK   # 福岡
-  - CTS   # 札幌新千歲
-  - OKA   # 沖繩那霸
-  - ICN   # 首爾仁川
-  - PUS   # 釜山金海
+  - NRT
+  - HND
+  - KIX
+  - FUK
+  - CTS
+  - OKA
+  - ICN
+  - PUS
 
-# 每次執行都從今天自動搜尋到未來 12 個月
-# 不需要手動改 start_date / end_date
+# 以台灣日期判斷「今天」
+timezone: Asia/Taipei
+
+# 永遠搜尋今天開始往後 12 個月
 search_months_ahead: 12
 
-# 停留天數：5、6、7……15 天全部建立候選
+# 雙軌中的近期高頻範圍
+near_term_days: 90
+
+# 每次近期軌搜尋數
+# 8 個目的地 -> 每個目的地 12 組
+near_checks_per_run: 96
+
+# 每次全年軌搜尋數
+# 8 個目的地 -> 每個目的地 24 組
+annual_checks_per_run: 192
+
 stay_duration:
   min_days: 5
   max_days: 15
   step_days: 1
 
-# 1 位成人、經濟艙
 adults: 1
 children: 0
-infants: 0
+infants_in_seat: 0
+infants_on_lap: 0
+
 seat: economy
 
-# 只搜尋直飛
+# 僅直飛
 direct_only: true
 
-# 每次排程最多嘗試幾組。
-# 96 可以被 8 個目的地整除：
-# 每次每個目的地剛好 12 組，最直觀、最公平。
-max_checks_per_run: 96
-
-# 如果某筆有價格但抓不到航空公司 / 起降時間，
-# 再重試 1 次，降低「資料未提供」的機率。
+# 第一次有價格但抓不到航空公司/時間時，再試一次
 metadata_retry_count: 1
 metadata_retry_delay_seconds: 1.0
 
-# 每次 Google Flights 查詢之間可稍微停一下。
-# 0 = 不額外等待；如果 GitHub Actions 限流變多，可改 0.5～1.0
-request_delay_seconds: 0.0
+# 每個日期組合之間稍微停一下
+request_delay_seconds: 0.3
 
-# 「相對便宜」的平均價比較基準：
-# 使用最近 60 天實際查價紀錄。
+# Cheap Score 使用近期價格池
 history_days: 60
 
-# latest.json 最多輸出多少筆可供網頁篩選的候選。
-# 3000 通常已足夠；0 代表完全不限制。
+# 少於這個數仍計算 Score，但標記為樣本較少
+min_score_samples: 20
+
+# latest.json 最多輸出幾筆
+# 0 = 不限制
 max_deals_to_publish: 3000
 
 data:
