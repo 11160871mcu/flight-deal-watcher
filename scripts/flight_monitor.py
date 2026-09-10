@@ -6,7 +6,11 @@ import datetime
 import itertools
 from dateutil.relativedelta import relativedelta
 
-from fast_flights import FlightData, Passengers, get_flights
+from fast_flights import FlightData, Passengers, create_filter
+try:
+    from fast_flights import get_flights_from_filter
+except ImportError:
+    from fast_flights.core import get_flights_from_filter
 
 CONFIG_PATH = "config.yaml"
 HISTORY_CSV = "docs/data/history.csv"
@@ -112,7 +116,7 @@ def _safe_int(v):
 def search_one(task):
 
     try:
-        result = get_flights(
+        flight_filter = create_filter(
             flight_data=[
                 # 去程
                 FlightData(
@@ -132,6 +136,11 @@ def search_one(task):
             seat="economy",
             max_stops=0
         )
+
+        # 明確指定用新台幣查價：get_flights() 懶人版不會傳 currency 給
+        # Google，GitHub Actions 的美國機房會因此預設回傳美金報價，
+        # 所以這裡改叫 get_flights_from_filter() 並強制帶 currency="TWD"。
+        result = get_flights_from_filter(flight_filter, currency="TWD")
 
         if not result.flights:
             return None
