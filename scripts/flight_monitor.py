@@ -7,7 +7,6 @@ import json
 import re
 import time
 
-from collections import defaultdict
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -29,6 +28,7 @@ except ImportError:
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
 CONFIG_PATH = ROOT / "config.yaml"
 
 
@@ -44,6 +44,8 @@ HISTORY_FIELDS = [
     "passengers",
     "flight_options_json",
     "checked_at",
+    "track",
+    "price_drop_percent",
 ]
 
 
@@ -61,7 +63,8 @@ def load_config() -> dict[str, Any]:
         return yaml.safe_load(f) or {}
 
 
-def path_from_config(
+
+def data_path(
     cfg: dict[str, Any],
     key: str,
 ) -> Path:
@@ -76,260 +79,193 @@ def path_from_config(
     return path
 
 
-def stays(
-    cfg: dict[str, Any],
-) -> list[int]:
 
-    settings = cfg.get(
+def stay_days(
+    cfg: dict[str, Any],
+):
+
+    s = cfg.get(
         "stay_duration",
         {},
     )
 
-    minimum = int(
-        settings.get(
-            "min_days",
-            5,
-        )
-    )
-
-    maximum = int(
-        settings.get(
-            "max_days",
-            15,
-        )
-    )
-
-    step = int(
-        settings.get(
-            "step_days",
-            1,
-        )
-    )
-
     return list(
         range(
-            minimum,
-            maximum + 1,
-            step,
+            int(s.get("min_days",5)),
+            int(s.get("max_days",15))+1,
+            int(s.get("step_days",1)),
         )
     )
 
 
-# ============================================================
-# TASK KEY
-# ============================================================
 
 def route_key(
-    origin: str,
-    destination: str,
-) -> str:
+    origin,
+    destination,
+):
 
     return f"{origin}|{destination}"
 
 
-def task_key(
-    task: dict[str, Any],
-) -> tuple[str, str, str, str, int]:
-
-    return (
-        task["origin"],
-        task["destination"],
-        task["departure_date"],
-        task["return_date"],
-        int(task["stay_days"]),
-    )
-
 
 # ============================================================
-# BUILD SEARCH GRID
+# SEARCH GRID
 # ============================================================
+
 
 def build_tasks(
-    cfg: dict[str, Any],
-    start: dt.date,
-    end: dt.date,
-) -> dict[str, list[dict[str, Any]]]:
+    cfg,
+    start,
+    end,
+    allowed_stays=None,
+):
 
-    result = {}
+    result={}
 
-    stay_list = stays(cfg)
+    stays = (
+        allowed_stays
+        if allowed_stays
+        else stay_days(cfg)
+    )
+
 
     for origin in cfg["origins"]:
 
         for destination in cfg["destinations"]:
 
-            rk = route_key(
+            key = route_key(
                 origin,
                 destination,
             )
 
-            rows = []
+            rows=[]
 
-            total_days = (
-                end - start
-            ).days
 
-            for i in range(
-                total_days + 1
-            ):
+            total=(end-start).days
 
-                departure = (
+
+            for i in range(total+1):
+
+                dep = (
                     start
-                    + dt.timedelta(days=i)
+                    +
+                    dt.timedelta(days=i)
                 )
 
-                for stay in stay_list:
 
-                    return_date = (
-                        departure
-                        + dt.timedelta(
-                            days=stay
-                        )
+                for stay in stays:
+
+                    ret = (
+                        dep
+                        +
+                        dt.timedelta(days=stay)
                     )
+
 
                     rows.append(
                         {
-                            "origin": origin,
-                            "destination": destination,
-                            "departure_date":
-                                departure.isoformat(),
-                            "return_date":
-                                return_date.isoformat(),
-                            "stay_days": stay,
+                            "origin":origin,
+                            "destination":destination,
+                            "departure_date":dep.isoformat(),
+                            "return_date":ret.isoformat(),
+                            "stay_days":stay,
                         }
                     )
 
-            result[rk] = rows
+
+            result[key]=rows
+
 
     return result
+
 
 
 # ============================================================
 # STATE
 # ============================================================
 
-def signature(
-    cfg: dict[str, Any],
-) -> str:
 
-    content = {
+def config_signature(cfg):
 
-        "origins":
-            cfg.get(
-                "origins",
-                [],
-            ),
-
-        "destinations":
-            cfg.get(
-                "destinations",
-                [],
-            ),
-
-        "months":
-            cfg.get(
-                "search_months_ahead",
-                12,
-            ),
-
-        "near_days":
-            cfg.get(
-                "near_term_days",
-                90,
-            ),
-
-        "stay":
-            cfg.get(
-                "stay_duration",
-                {},
-            ),
-
-        "adults":
-            cfg.get(
-                "adults",
-                1,
-            ),
-
-        "seat":
-            cfg.get(
-                "seat",
-                "economy",
-            ),
-
-        "direct_only":
-            cfg.get(
-                "direct_only",
-                True,
-            ),
-    }
-
-    raw = json.dumps(
-        content,
+    raw=json.dumps(
+        {
+            "origin":cfg.get("origins"),
+            "destination":cfg.get("destinations"),
+            "stay":cfg.get("stay_duration"),
+        },
         sort_keys=True,
-        ensure_ascii=False,
-    ).encode()
+    )
+
 
     return hashlib.sha256(
-        raw
+        raw.encode()
     ).hexdigest()[:20]
 
 
+
 def new_state(
-    cfg: dict[str, Any],
-    today: dt.date,
-    routes: list[str],
-) -> dict[str, Any]:
+    cfg,
+    routes,
+):
 
     return {
 
-        "version": 5,
+        "version":8,
 
-        "grid_signature":
-            signature(cfg),
+        "signature":
+            config_signature(cfg),
 
-        "grid_start_date":
-            today.isoformat(),
 
-        "near_cursor_by_route":
-            {
-                route: 0
-                for route in routes
-            },
+        "urgent_cursor":
+        {
+            r:0
+            for r in routes
+        },
 
-        "annual_cursor_by_route":
-            {
-                route: 0
-                for route in routes
-            },
 
-        "near_rotation": 0,
+        "hot_cursor":
+        {
+            r:0
+            for r in routes
+        },
 
-        "annual_rotation": 0,
 
-        "total_attempts": 0,
+        "explore_cursor":
+        {
+            r:0
+            for r in routes
+        },
+
+
+        "last_price_map":{},
+
+
+        "total_attempts":0,
+
     }
 
 
-def load_state(
-    cfg: dict[str, Any],
-    path: Path,
-    today: dt.date,
-    routes: list[str],
-) -> dict[str, Any]:
 
-    fresh = new_state(
+def load_state(
+    cfg,
+    path,
+    routes,
+):
+
+    fresh=new_state(
         cfg,
-        today,
         routes,
     )
+
 
     if not path.exists():
 
         return fresh
 
+
     try:
 
-        state = json.loads(
+        state=json.loads(
             path.read_text(
                 encoding="utf-8"
             )
@@ -339,538 +275,416 @@ def load_state(
 
         return fresh
 
+
+
     if (
-        state.get("version") != 5
-        or
-        state.get(
-            "grid_signature"
-        ) != signature(cfg)
+        state.get("version")
+        !=
+        8
     ):
 
         return fresh
 
-    try:
-
-        old_date = (
-            dt.date.fromisoformat(
-                state.get(
-                    "grid_start_date",
-                    today.isoformat(),
-                )
-            )
-        )
-
-        shift = (
-            today - old_date
-        ).days
-
-    except Exception:
-
-        shift = 0
-
-    # 每天日期窗口會往前移。
-    # 因此 cursor 也需要扣除已過期日期的組合。
-    if shift:
-
-        per_day = len(
-            stays(cfg)
-        )
-
-        for state_name in (
-            "near_cursor_by_route",
-            "annual_cursor_by_route",
-        ):
-
-            cursor_map = (
-                state.setdefault(
-                    state_name,
-                    {},
-                )
-            )
-
-            for route in routes:
-
-                value = int(
-                    cursor_map.get(
-                        route,
-                        0,
-                    )
-                )
-
-                if shift > 0:
-
-                    value = max(
-                        0,
-                        value
-                        -
-                        shift * per_day,
-                    )
-
-                else:
-
-                    value += (
-                        abs(shift)
-                        *
-                        per_day
-                    )
-
-                cursor_map[route] = value
-
-    state[
-        "grid_start_date"
-    ] = today.isoformat()
-
-    for state_name in (
-        "near_cursor_by_route",
-        "annual_cursor_by_route",
-    ):
-
-        state.setdefault(
-            state_name,
-            {},
-        )
-
-        for route in routes:
-
-            state[
-                state_name
-            ].setdefault(
-                route,
-                0,
-            )
 
     return state
 
 
-# ============================================================
-# FAIR QUOTA
-# ============================================================
-
-def fair_quotas(
-    total: int,
-    routes: list[str],
-    rotation: int,
-) -> tuple[
-    dict[str, int],
-    int,
-]:
-
-    base, extra = divmod(
-        max(
-            0,
-            total,
-        ),
-        len(routes),
-    )
-
-    quota = {
-        route: base
-        for route in routes
-    }
-
-    for i in range(extra):
-
-        route = routes[
-            (
-                rotation + i
-            )
-            %
-            len(routes)
-        ]
-
-        quota[route] += 1
-
-    next_rotation = (
-        rotation + extra
-    ) % len(routes)
-
-    return (
-        quota,
-        next_rotation,
-    )
-
 
 # ============================================================
-# PICK TASKS
+# ADAPTIVE QUOTA
 # ============================================================
 
-def pick_by_route(
-    pools:
-        dict[
-            str,
-            list[
-                dict[
-                    str,
-                    Any,
-                ]
-            ],
-        ],
-    cursors:
-        dict[str, int],
-    quotas:
-        dict[str, int],
-    used:
-        set[
-            tuple[
-                str,
-                str,
-                str,
-                str,
-                int,
-            ]
-        ],
-    track: str,
+
+def fair_quota(
+    total,
+    routes,
 ):
 
-    chosen = {
-        route: []
-        for route in pools
+    base,extra=divmod(
+        total,
+        len(routes)
+    )
+
+
+    q={
+        r:base
+        for r in routes
     }
 
-    for route, tasks in (
-        pools.items()
-    ):
+
+    for r in routes[:extra]:
+
+        q[r]+=1
+
+
+    return q
+# ============================================================
+# TASK PICKER
+# 三層自適應搜尋
+# ============================================================
+
+
+def pick_tasks(
+    pools,
+    cursor_map,
+    quotas,
+    track,
+    used,
+):
+
+    selected=[]
+
+
+    for route,tasks in pools.items():
 
         if not tasks:
-
             continue
 
-        index = (
-            int(
-                cursors.get(
-                    route,
-                    0,
-                )
+
+        cursor=int(
+            cursor_map.get(
+                route,
+                0
             )
-            %
-            len(tasks)
         )
 
-        scanned = 0
+
+        quota=quotas.get(
+            route,
+            0
+        )
+
+
+        count=0
+
+        scanned=0
+
 
         while (
-            len(
-                chosen[route]
-            )
-            <
-            quotas.get(
-                route,
-                0,
-            )
-            and
-            scanned
-            <
-            len(tasks)
+            count < quota
+            and scanned < len(tasks)
         ):
 
-            task = tasks[index]
+            index=(
+                cursor
+                %
+                len(tasks)
+            )
 
-            index = (
-                index + 1
-            ) % len(tasks)
+
+            task=tasks[index]
+
+
+            cursor += 1
 
             scanned += 1
 
-            key = task_key(
-                task
+
+            key=(
+                task["origin"],
+                task["destination"],
+                task["departure_date"],
+                task["return_date"],
+                task["stay_days"],
             )
 
-            # 避免近期軌與全年軌
-            # 在同一次執行查同一組日期
-            if key in used:
 
+            if key in used:
                 continue
 
-            item = dict(task)
 
-            item[
-                "track"
-            ] = track
+            item=dict(task)
 
-            chosen[
-                route
-            ].append(
+            item["track"]=track
+
+
+            selected.append(
                 item
             )
 
-            used.add(
-                key
-            )
 
-        cursors[
-            route
-        ] = index
+            used.add(key)
 
-    return chosen
+
+            count += 1
+
+
+
+        cursor_map[route]=cursor
+
+
+
+    return selected
+
 
 
 # ============================================================
-# DUAL TRACK
+# THREE LEVEL SEARCH STRATEGY
 # ============================================================
 
-def build_dual_track_batch(
-    cfg: dict[str, Any],
-    state: dict[str, Any],
-    today: dt.date,
+
+def build_search_batch(
+    cfg,
+    state,
+    today,
 ):
 
-    annual_end = (
-        today
-        +
-        relativedelta(
-            months=int(
-                cfg.get(
-                    "search_months_ahead",
-                    12,
-                )
-            )
+
+    routes=[
+        route_key(
+            o,
+            d
         )
-    )
+        for o in cfg["origins"]
+        for d in cfg["destinations"]
+    ]
 
-    near_end = min(
 
-        annual_end,
+    # --------------------------------------------------------
+    # 1. urgent
+    # 未來30天
+    # 全停留天數
+    # 最高優先
+    # --------------------------------------------------------
 
+    urgent_end=(
         today
         +
         dt.timedelta(
             days=int(
                 cfg.get(
-                    "near_term_days",
-                    90,
+                    "urgent_days",
+                    30
                 )
             )
+        )
+    )
+
+
+    urgent_pool=build_tasks(
+        cfg,
+        today,
+        urgent_end,
+    )
+
+
+
+    # --------------------------------------------------------
+    # 2. hot
+    # 未來180天
+    # 只搜尋常見旅行長度
+    # --------------------------------------------------------
+
+
+    hot_end=(
+        today
+        +
+        dt.timedelta(
+            days=int(
+                cfg.get(
+                    "hot_days",
+                    180
+                )
+            )
+        )
+    )
+
+
+    hot_pool=build_tasks(
+        cfg,
+        today,
+        hot_end,
+        allowed_stays=[
+            5,
+            7,
+            10,
+            14,
+        ],
+    )
+
+
+
+    # --------------------------------------------------------
+    # 3. explore
+    # 全年探索
+    # --------------------------------------------------------
+
+
+    explore_end=(
+        today
+        +
+        relativedelta(
+            months=int(
+                cfg.get(
+                    "explore_months_ahead",
+                    12
+                )
+            )
+        )
+    )
+
+
+    explore_pool=build_tasks(
+        cfg,
+        today,
+        explore_end,
+        allowed_stays=[
+            7
+        ],
+    )
+
+
+
+    used=set()
+
+
+
+    urgent_quota=fair_quota(
+        int(
+            cfg.get(
+                "urgent_checks_per_run",
+                480
+            )
         ),
+        routes,
     )
 
-    annual_pool = (
-        build_tasks(
-            cfg,
-            today,
-            annual_end,
-        )
+
+    hot_quota=fair_quota(
+        int(
+            cfg.get(
+                "hot_checks_per_run",
+                400
+            )
+        ),
+        routes,
     )
 
-    near_pool = (
-        build_tasks(
-            cfg,
-            today,
-            near_end,
-        )
+
+    explore_quota=fair_quota(
+        int(
+            cfg.get(
+                "explore_checks_per_run",
+                120
+            )
+        ),
+        routes,
     )
 
-    routes = list(
-        annual_pool.keys()
+
+
+    urgent=pick_tasks(
+        urgent_pool,
+        state["urgent_cursor"],
+        urgent_quota,
+        "urgent",
+        used,
     )
 
-    near_quota, next_rotation = (
-        fair_quotas(
 
-            int(
-                cfg.get(
-                    "near_checks_per_run",
-                    96,
-                )
-            ),
-
-            routes,
-
-            int(
-                state.get(
-                    "near_rotation",
-                    0,
-                )
-            ),
-        )
+    hot=pick_tasks(
+        hot_pool,
+        state["hot_cursor"],
+        hot_quota,
+        "hot",
+        used,
     )
 
-    state[
-        "near_rotation"
-    ] = next_rotation
 
-    annual_quota, next_rotation = (
-        fair_quotas(
-
-            int(
-                cfg.get(
-                    "annual_checks_per_run",
-                    192,
-                )
-            ),
-
-            routes,
-
-            int(
-                state.get(
-                    "annual_rotation",
-                    0,
-                )
-            ),
-        )
+    explore=pick_tasks(
+        explore_pool,
+        state["explore_cursor"],
+        explore_quota,
+        "explore",
+        used,
     )
 
-    state[
-        "annual_rotation"
-    ] = next_rotation
 
-    used = set()
 
-    near_selected = (
-        pick_by_route(
-            near_pool,
-            state[
-                "near_cursor_by_route"
-            ],
-            near_quota,
-            used,
-            "near",
-        )
+    # 優先級排列
+    #
+    # urgent:
+    #   最容易抓到突降
+    #
+    # hot:
+    #   中期促銷
+    #
+    # explore:
+    #   未來機會
+
+
+    batch=[]
+
+
+    batch.extend(
+        urgent
     )
 
-    annual_selected = (
-        pick_by_route(
-            annual_pool,
-            state[
-                "annual_cursor_by_route"
-            ],
-            annual_quota,
-            used,
-            "annual",
-        )
+
+    batch.extend(
+        hot
     )
 
-    batch = []
 
-    maximum = max(
-
-        max(
-            len(
-                near_selected[
-                    route
-                ]
-            ),
-            len(
-                annual_selected[
-                    route
-                ]
-            ),
-        )
-
-        for route
-        in routes
+    batch.extend(
+        explore
     )
 
-    # 交錯執行：
-    # NRT 近期 → NRT 全年 →
-    # HND 近期 → HND 全年 ...
-    for index in range(
-        maximum
-    ):
 
-        for route in routes:
+    return batch
 
-            if (
-                index
-                <
-                len(
-                    near_selected[
-                        route
-                    ]
-                )
-            ):
-
-                batch.append(
-                    near_selected[
-                        route
-                    ][index]
-                )
-
-            if (
-                index
-                <
-                len(
-                    annual_selected[
-                        route
-                    ]
-                )
-            ):
-
-                batch.append(
-                    annual_selected[
-                        route
-                    ][index]
-                )
-
-    total_grid = sum(
-        len(rows)
-        for rows
-        in annual_pool.values()
-    )
-
-    return (
-        batch,
-        near_quota,
-        annual_quota,
-        total_grid,
-        annual_end,
-        near_end,
-    )
 
 
 # ============================================================
-# PRICE
+# PRICE PARSER
 # ============================================================
+
 
 def parse_price(
-    value: Any,
-) -> int | None:
+    value
+):
+
 
     if value is None:
 
         return None
 
+
+
     if isinstance(
         value,
-        (int, float),
-    ) and not isinstance(
-        value,
-        bool,
+        (int,float)
     ):
 
-        number = int(
-            value
-        )
+        value=int(value)
 
-        if number >= 1000:
+        if value>=1000:
 
-            return number
+            return value
+
 
         return None
 
-    text = str(
+
+
+    text=str(
         value
     ).strip()
 
-    upper = (
-        text.upper()
-    )
+
 
     if not text:
 
         return None
 
-    if any(
-        phrase in upper
-        for phrase in (
-            "UNAVAILABLE",
-            "CHECK PRICE",
-        )
-    ):
 
-        return None
 
-    # 很重要：
-    # 不把 US$220 誤當成 NT$220
+    upper=text.upper()
+
+
+
+    # 防止 USD 被當 TWD
+
     if (
         "NT$"
         not in upper
@@ -881,73 +695,160 @@ def parse_price(
 
         return None
 
-    digits = re.sub(
+
+
+    digits=re.sub(
         r"[^0-9]",
         "",
-        text,
+        text
     )
+
+
 
     if not digits:
 
         return None
 
-    number = int(
+
+
+    price=int(
         digits
     )
 
-    if number < 1000:
+
+    if price < 1000:
 
         return None
 
-    return number
+
+
+    return price
+
 
 
 # ============================================================
-# FAST-FLIGHTS
+# PRICE DROP DETECTION
 # ============================================================
 
-def fetch_candidates(
-    task: dict[str, Any],
-    cfg: dict[str, Any],
+
+def price_key(
+    task
 ):
 
-    kwargs = {
+    return "|".join(
+        [
+            task["origin"],
+            task["destination"],
+            task["departure_date"],
+            task["return_date"],
+            str(task["stay_days"]),
+        ]
+    )
 
-        "flight_data": [
+
+
+def calculate_drop(
+    old_price,
+    new_price,
+):
+
+
+    if not old_price:
+
+        return 0
+
+
+
+    if new_price >= old_price:
+
+        return 0
+
+
+
+    drop=(
+        old_price-new_price
+    ) / old_price * 100
+
+
+
+    return round(
+        drop,
+        2
+    )
+
+
+
+def update_price_memory(
+    state,
+    task,
+    price,
+):
+
+
+    key=price_key(
+        task
+    )
+
+
+    old=state["last_price_map"].get(
+        key
+    )
+
+
+    drop=calculate_drop(
+        old,
+        price
+    )
+
+
+    state["last_price_map"][key]=price
+
+
+    return drop
+# ============================================================
+# FAST-FLIGHTS QUERY
+# ============================================================
+
+
+def fetch_candidates(
+    task,
+    cfg,
+):
+
+
+    kwargs={
+
+        "flight_data":[
 
             FlightData(
                 date=
-                    task[
-                        "departure_date"
-                    ],
+                    task["departure_date"],
+
                 from_airport=
-                    task[
-                        "origin"
-                    ],
+                    task["origin"],
+
                 to_airport=
-                    task[
-                        "destination"
-                    ],
+                    task["destination"],
             ),
+
 
             FlightData(
                 date=
-                    task[
-                        "return_date"
-                    ],
+                    task["return_date"],
+
                 from_airport=
-                    task[
-                        "destination"
-                    ],
+                    task["destination"],
+
                 to_airport=
-                    task[
-                        "origin"
-                    ],
+                    task["origin"],
             ),
+
         ],
+
 
         "trip":
             "round-trip",
+
 
         "seat":
             cfg.get(
@@ -955,1558 +856,918 @@ def fetch_candidates(
                 "economy",
             ),
 
+
         "passengers":
             Passengers(
-
                 adults=int(
                     cfg.get(
                         "adults",
                         1,
                     )
-                ),
-
-                children=int(
-                    cfg.get(
-                        "children",
-                        0,
-                    )
-                ),
-
-                infants_in_seat=int(
-                    cfg.get(
-                        "infants_in_seat",
-                        0,
-                    )
-                ),
-
-                infants_on_lap=int(
-                    cfg.get(
-                        "infants_on_lap",
-                        0,
-                    )
-                ),
+                )
             ),
+
     }
+
+
 
     if cfg.get(
         "direct_only",
-        True,
+        True
     ):
 
         kwargs[
             "max_stops"
-        ] = 0
+        ]=0
 
-    search_filter = (
-        create_filter(
-            **kwargs
-        )
+
+
+    search_filter=create_filter(
+        **kwargs
     )
 
-    result = (
-        get_flights_from_filter(
-            search_filter,
-            currency="TWD",
+
+
+    try:
+
+        result=get_flights_from_filter(
+            search_filter
         )
+
+
+        return result
+
+
+    except Exception as e:
+
+        print(
+            "query failed:",
+            task,
+            e,
+        )
+
+        return None
+
+
+
+
+
+# ============================================================
+# FLIGHT RESULT PARSER
+# ============================================================
+
+
+def extract_price(
+    flight
+):
+
+
+    candidates=[]
+
+
+
+    for attr in [
+        "price",
+        "total_price",
+        "price_amount",
+    ]:
+
+        if hasattr(
+            flight,
+            attr
+        ):
+
+            value=getattr(
+                flight,
+                attr
+            )
+
+
+            p=parse_price(
+                value
+            )
+
+
+            if p:
+
+                candidates.append(
+                    p
+                )
+
+
+
+    if not candidates:
+
+        return None
+
+
+
+    return min(
+        candidates
     )
 
-    flights = (
-        getattr(
-            result,
-            "flights",
-            None,
-        )
-        or
+
+
+
+
+def extract_options(
+    result
+):
+
+
+    options=[]
+
+
+    if result is None:
+
+        return options
+
+
+
+    flights=getattr(
+        result,
+        "flights",
         []
     )
 
-    candidates = []
-
-    for flight in flights:
-
-        raw_price = (
-            getattr(
-                flight,
-                "price",
-                None,
-            )
-        )
-
-        price = (
-            parse_price(
-                raw_price
-            )
-        )
-
-        if price is None:
-
-            continue
-
-        candidates.append(
-            {
-                "price":
-                    price,
-
-                "price_raw":
-                    str(
-                        raw_price
-                        or
-                        ""
-                    ),
-
-                "airline":
-                    getattr(
-                        flight,
-                        "name",
-                        None,
-                    ),
-
-                "departure":
-                    getattr(
-                        flight,
-                        "departure",
-                        None,
-                    ),
-
-                "arrival":
-                    getattr(
-                        flight,
-                        "arrival",
-                        None,
-                    ),
-
-                "duration":
-                    getattr(
-                        flight,
-                        "duration",
-                        None,
-                    ),
-
-                "stops":
-                    getattr(
-                        flight,
-                        "stops",
-                        None,
-                    ),
-            }
-        )
-
-    return candidates
 
 
-# ============================================================
-# SAME PRICE OPTIONS
-# ============================================================
+    for f in flights:
 
-def option_key(
-    option: dict[str, Any],
-):
 
-    return tuple(
-        str(
-            option.get(key)
-            or
-            ""
-        )
-        for key
-        in (
+        item={}
+
+
+
+        for key in [
             "airline",
             "departure",
             "arrival",
             "duration",
             "stops",
-        )
-    )
+        ]:
 
 
-def cheapest(
-    candidates:
-        list[
-            dict[
-                str,
-                Any,
-            ]
-        ],
-):
+            if hasattr(
+                f,
+                key
+            ):
 
-    if not candidates:
+                item[key]=str(
+                    getattr(
+                        f,
+                        key
+                    )
+                )
 
-        return (
-            None,
-            "",
-            [],
-        )
-
-    lowest = min(
-        int(
-            item["price"]
-        )
-        for item
-        in candidates
-    )
-
-    same_price = [
-
-        item
-        for item
-        in candidates
-        if
-        int(
-            item["price"]
-        )
-        ==
-        lowest
-    ]
-
-    options = []
-
-    seen = set()
-
-    for item in same_price:
-
-        # 有價格但完全沒 metadata
-        # 仍然保留價格，
-        # 但不偽造航空公司
-        if not any(
-            item.get(key)
-            for key
-            in (
-                "airline",
-                "departure",
-                "arrival",
-            )
-        ):
-
-            continue
-
-        option = {
-
-            "airline":
-                item.get(
-                    "airline"
-                ),
-
-            "departure":
-                item.get(
-                    "departure"
-                ),
-
-            "arrival":
-                item.get(
-                    "arrival"
-                ),
-
-            "duration":
-                item.get(
-                    "duration"
-                ),
-
-            "stops":
-                item.get(
-                    "stops"
-                ),
-        }
-
-        key = option_key(
-            option
-        )
-
-        if key in seen:
-
-            continue
-
-        seen.add(
-            key
-        )
 
         options.append(
-            option
+            item
         )
 
-    raw_price = next(
 
-        (
-            item[
-                "price_raw"
-            ]
-            for item
-            in same_price
-            if item.get(
-                "price_raw"
-            )
-        ),
+    return options
 
-        f"NT${lowest}",
-    )
 
-    return (
-        lowest,
-        raw_price,
-        options,
-    )
+
 
 
 # ============================================================
-# SEARCH ONE
+# HISTORY CSV
 # ============================================================
 
-def search_one(
-    task: dict[str, Any],
-    cfg: dict[str, Any],
+
+def ensure_history(
+    path
 ):
 
-    all_candidates = []
 
-    retries = int(
+    if path.exists():
+
+        return
+
+
+
+    with path.open(
+        "w",
+        newline="",
+        encoding="utf-8-sig",
+    ) as f:
+
+
+        writer=csv.DictWriter(
+            f,
+            fieldnames=
+                HISTORY_FIELDS,
+        )
+
+
+        writer.writeheader()
+
+
+
+
+
+def append_history(
+    path,
+    row,
+):
+
+
+    with path.open(
+        "a",
+        newline="",
+        encoding="utf-8-sig",
+    ) as f:
+
+
+        writer=csv.DictWriter(
+            f,
+            fieldnames=
+                HISTORY_FIELDS,
+        )
+
+
+        writer.writerow(
+            row
+        )
+
+
+
+
+
+# ============================================================
+# RUN ONE TASK
+# ============================================================
+
+
+def process_task(
+    task,
+    cfg,
+    state,
+    history_path,
+):
+
+
+    result=fetch_candidates(
+        task,
+        cfg,
+    )
+
+
+
+    if result is None:
+
+        return None
+
+
+
+    price=extract_price(
+        result
+    )
+
+
+
+    if price is None:
+
+        return None
+
+
+
+    options=extract_options(
+        result
+    )
+
+
+
+    # 有價格但抓不到航空公司/時間等 metadata 時，依設定重試
+
+    retry_count=int(
         cfg.get(
             "metadata_retry_count",
             1,
         )
     )
 
-    retry_delay = float(
+    retry_delay=float(
         cfg.get(
             "metadata_retry_delay_seconds",
             1.0,
         )
     )
 
-    for attempt in range(
-        retries + 1
+    attempts=0
+
+    while (
+        not options
+        and attempts < retry_count
     ):
 
-        try:
+        time.sleep(retry_delay)
 
-            candidates = (
-                fetch_candidates(
-                    task,
-                    cfg,
-                )
-            )
-
-            all_candidates.extend(
-                candidates
-            )
-
-        except Exception as exc:
-
-            print(
-                "  ERROR:",
-                type(exc).__name__,
-                str(exc),
-            )
-
-        (
-            price,
-            raw_price,
-            options,
-        ) = cheapest(
-            all_candidates
+        retry_result=fetch_candidates(
+            task,
+            cfg,
         )
 
-        if (
-            price is not None
-            and
-            (
-                options
-                or
-                attempt == retries
-            )
-        ):
+        if retry_result is not None:
 
-            return {
-
-                "origin":
-                    task[
-                        "origin"
-                    ],
-
-                "destination":
-                    task[
-                        "destination"
-                    ],
-
-                "departure_date":
-                    task[
-                        "departure_date"
-                    ],
-
-                "return_date":
-                    task[
-                        "return_date"
-                    ],
-
-                "stay_days":
-                    task[
-                        "stay_days"
-                    ],
-
-                "price":
-                    price,
-
-                "price_raw":
-                    raw_price,
-
-                "currency":
-                    "TWD",
-
-                "passengers":
-                    int(
-                        cfg.get(
-                            "adults",
-                            1,
-                        )
-                    ),
-
-                "flight_options_json":
-                    json.dumps(
-                        options,
-                        ensure_ascii=False,
-                        separators=(
-                            ",",
-                            ":",
-                        ),
-                    ),
-
-                "checked_at":
-                    dt.datetime.now(
-                        dt.timezone.utc
-                    )
-                    .replace(
-                        microsecond=0
-                    )
-                    .isoformat(),
-            }
-
-        if attempt < retries:
-
-            time.sleep(
-                retry_delay
+            retry_price=extract_price(
+                retry_result
             )
 
-    return None
-
-
-# ============================================================
-# HISTORY
-# ============================================================
-
-def parse_options(
-    raw: Any,
-):
-
-    try:
-
-        if isinstance(
-            raw,
-            list,
-        ):
-
-            value = raw
-
-        else:
-
-            value = json.loads(
-                raw
-                or
-                "[]"
+            retry_options=extract_options(
+                retry_result
             )
 
-        if isinstance(
-            value,
-            list,
-        ):
+            if retry_price is not None:
 
-            return value
+                price=retry_price
 
-    except Exception:
+            if retry_options:
 
-        pass
+                options=retry_options
 
-    return []
+        attempts += 1
 
 
-def load_history(
-    path: Path,
-):
 
-    if (
-        not path.exists()
-        or
-        path.stat().st_size == 0
-    ):
-
-        return []
-
-    with path.open(
-        "r",
-        encoding="utf-8-sig",
-        newline="",
-    ) as file:
-
-        return list(
-            csv.DictReader(
-                file
-            )
-        )
-
-
-def append_history(
-    path: Path,
-    rows: list[
-        dict[
-            str,
-            Any,
-        ]
-    ],
-):
-
-    if not rows:
-
-        return
-
-    exists = (
-        path.exists()
-        and
-        path.stat().st_size > 0
+    drop=update_price_memory(
+        state,
+        task,
+        price,
     )
 
-    with path.open(
-        "a",
-        encoding="utf-8",
-        newline="",
-    ) as file:
 
-        writer = (
-            csv.DictWriter(
-                file,
-                fieldnames=
-                    HISTORY_FIELDS,
-                extrasaction=
-                    "ignore",
+
+    now=dt.datetime.now(
+        ZoneInfo(
+            cfg.get(
+                "timezone",
+                "Asia/Taipei",
             )
         )
-
-        if not exists:
-
-            writer.writeheader()
-
-        writer.writerows(
-            rows
-        )
+    ).isoformat()
 
 
-# ============================================================
-# HISTORY PRICE
-# ============================================================
 
-def row_price(
-    row: dict[str, Any],
-):
+    row={
 
-    try:
-
-        price = int(
-            float(
-                str(
-                    row.get(
-                        "price",
-                        "0",
-                    )
-                )
-            )
-        )
-
-        currency = str(
-            row.get(
-                "currency",
-                "TWD",
-            )
-        ).upper()
-
-        if (
-            price >= 1000
-            and
-            currency == "TWD"
-        ):
-
-            return price
-
-    except Exception:
-
-        pass
-
-    return None
+        "origin":
+            task["origin"],
 
 
-def checked_time(
-    raw: str,
-):
-
-    try:
-
-        value = (
-            dt.datetime.fromisoformat(
-                raw.replace(
-                    "Z",
-                    "+00:00",
-                )
-            )
-        )
-
-        if value.tzinfo:
-
-            return value
-
-        return value.replace(
-            tzinfo=
-                dt.timezone.utc
-        )
-
-    except Exception:
-
-        return (
-            dt.datetime.min.replace(
-                tzinfo=
-                    dt.timezone.utc
-            )
-        )
+        "destination":
+            task["destination"],
 
 
-# ============================================================
-# MERGE OPTIONS
-# ============================================================
-
-def merge_options(
-    first,
-    second,
-):
-
-    result = []
-
-    seen = set()
-
-    for option in (
-        first + second
-    ):
-
-        key = option_key(
-            option
-        )
-
-        if key in seen:
-
-            continue
-
-        seen.add(
-            key
-        )
-
-        result.append(
-            option
-        )
-
-    return result
+        "departure_date":
+            task["departure_date"],
 
 
-# ============================================================
-# LATEST COMBOS
-# ============================================================
+        "return_date":
+            task["return_date"],
 
-def latest_combos(
-    history,
-    cfg,
-    today,
-    annual_end,
-):
 
-    valid_routes = {
+        "stay_days":
+            task["stay_days"],
 
-        (
-            origin,
-            destination,
-        )
 
-        for origin
-        in cfg["origins"]
+        "price":
+            price,
 
-        for destination
-        in cfg["destinations"]
+
+        "price_raw":
+            price,
+
+
+        "currency":
+            "TWD",
+
+
+        "passengers":
+            cfg.get(
+                "adults",
+                1,
+            ),
+
+
+        "flight_options_json":
+            json.dumps(
+                options,
+                ensure_ascii=False,
+            ),
+
+
+        "checked_at":
+            now,
+
+
+        "track":
+            task.get(
+                "track",
+                "",
+            ),
+
+
+        "price_drop_percent":
+            drop,
+
     }
 
-    valid_stays = set(
-        stays(cfg)
+
+
+    append_history(
+        history_path,
+        row,
     )
 
-    latest = {}
 
-    ordered_history = sorted(
 
-        history,
+    return {
 
-        key=lambda row:
-            checked_time(
-                str(
-                    row.get(
-                        "checked_at",
-                        "",
-                    )
-                )
-            ),
-    )
+        **task,
 
-    for row in ordered_history:
+        "price":
+            price,
 
-        price = row_price(
-            row
-        )
 
-        if price is None:
+        "currency":
+            "TWD",
 
-            continue
 
-        if (
-            (
-                row.get(
-                    "origin"
-                ),
-                row.get(
-                    "destination"
-                ),
-            )
-            not in
-            valid_routes
-        ):
-
-            continue
-
-        try:
-
-            departure = (
-                dt.date.fromisoformat(
-                    str(
-                        row[
-                            "departure_date"
-                        ]
-                    )
-                )
-            )
-
-            stay = int(
-                row[
-                    "stay_days"
-                ]
-            )
-
-        except Exception:
-
-            continue
-
-        if (
-            departure < today
-            or
-            departure > annual_end
-            or
-            stay not in valid_stays
-        ):
-
-            continue
-
-        key = (
-
-            row[
-                "origin"
-            ],
-
-            row[
-                "destination"
-            ],
-
-            row[
-                "departure_date"
-            ],
-
-            row[
-                "return_date"
-            ],
-
-            stay,
-        )
-
-        options = (
-            parse_options(
-                row.get(
-                    "flight_options_json"
-                )
-            )
-        )
-
-        previous = (
-            latest.get(
-                key
-            )
-        )
-
-        # 如果同一日期組合價格沒變，
-        # 可以保留之前成功抓到的航空公司/時間 metadata。
-        if (
-            previous
-            and
-            row_price(
-                previous
-            )
-            ==
-            price
-        ):
-
-            options = (
-                merge_options(
-
-                    parse_options(
-                        previous.get(
-                            "flight_options_json"
-                        )
-                    ),
-
-                    options,
-                )
-            )
-
-        item = dict(
-            row
-        )
-
-        item[
-            "price"
-        ] = price
-
-        item[
-            "stay_days"
-        ] = stay
-
-        item[
-            "flight_options_json"
-        ] = json.dumps(
-
+        "flight_options":
             options,
 
-            ensure_ascii=False,
 
-            separators=(
-                ",",
-                ":",
+        "checked_at":
+            now,
+
+
+        "price_drop_percent":
+            drop,
+
+
+        "alert":
+            (
+                "PRICE_DROP"
+                if drop >=
+                float(
+                    cfg.get(
+                        "price_drop_alert_percent",
+                        20,
+                    )
+                )
+                else ""
             ),
-        )
 
-        latest[
-            key
-        ] = item
-
-    return latest
-
-
+    }
 # ============================================================
-# BUILD LATEST.JSON
+# CHEAP SCORE
 # ============================================================
 
-def build_latest(
-    cfg,
-    history,
-    today,
-    annual_end,
-    near_end,
-    state,
-    total_grid,
-    near_quota,
-    annual_quota,
-    run_success,
-    attempted,
+
+def calculate_cheap_score(
+    history_path,
+    item,
+    days=60,
+    min_samples=20,
+    tz="Asia/Taipei",
 ):
 
-    current = (
-        latest_combos(
-            history,
-            cfg,
-            today,
-            annual_end,
-        )
-    )
+    if not history_path.exists():
 
-    grouped = defaultdict(
-        list
-    )
+        return None
 
-    for row in current.values():
 
-        grouped[
-            route_key(
-                row[
-                    "origin"
-                ],
-                row[
-                    "destination"
-                ],
-            )
-        ].append(
-            row
-        )
 
-    cutoff = (
+    prices=[]
+
+
+    # checked_at 是帶時區的 isoformat，cutoff 也要帶時區，
+    # 否則 naive/aware 比較會直接丟例外
+
+    cutoff=(
         dt.datetime.now(
-            dt.timezone.utc
+            ZoneInfo(tz)
         )
         -
         dt.timedelta(
-            days=int(
-                cfg.get(
-                    "history_days",
-                    60,
-                )
-            )
+            days=days
         )
     )
 
-    min_samples = int(
+
+    with history_path.open(
+        "r",
+        encoding="utf-8-sig",
+    ) as f:
+
+
+        reader=csv.DictReader(
+            f
+        )
+
+
+        for row in reader:
+
+
+            try:
+
+                checked=dt.datetime.fromisoformat(
+                    row["checked_at"]
+                )
+
+
+            except Exception:
+
+                continue
+
+
+
+            if checked < cutoff:
+
+                continue
+
+
+
+            if (
+                row["origin"]
+                ==
+                item["origin"]
+
+                and
+
+                row["destination"]
+                ==
+                item["destination"]
+            ):
+
+
+                try:
+
+                    prices.append(
+                        int(
+                            row["price"]
+                        )
+                    )
+
+                except Exception:
+
+                    pass
+
+
+
+    if len(prices) < min_samples:
+
+        return None
+
+
+
+    current=int(
+        item["price"]
+    )
+
+
+    better=sum(
+        1
+        for p in prices
+        if current <= p
+    )
+
+
+    return round(
+        better
+        /
+        len(prices)
+        *
+        100,
+        1,
+    )
+
+
+
+
+
+# ============================================================
+# LATEST JSON
+# ============================================================
+
+
+def write_latest(
+    path,
+    items,
+    cfg,
+    history_path,
+):
+
+
+    output=[]
+
+    score_days=int(
+        cfg.get(
+            "history_days",
+            60,
+        )
+    )
+
+    min_samples=int(
         cfg.get(
             "min_score_samples",
             20,
         )
     )
 
-    deals = []
+    tz=cfg.get(
+        "timezone",
+        "Asia/Taipei",
+    )
 
-    for rows in grouped.values():
 
-        recent_prices = [
+    for item in items:
 
-            int(
-                row[
-                    "price"
-                ]
-            )
 
-            for row in rows
+        item=dict(item)
 
-            if checked_time(
-                str(
-                    row.get(
-                        "checked_at",
-                        "",
-                    )
-                )
-            )
-            >=
-            cutoff
-        ]
 
-        if recent_prices:
 
-            pool = recent_prices
-
-        else:
-
-            pool = [
-
-                int(
-                    row[
-                        "price"
-                    ]
-                )
-
-                for row
-                in rows
-            ]
-
-        if not pool:
-
-            continue
-
-        average = (
-            sum(pool)
-            /
-            len(pool)
+        item["cheap_score"]=calculate_cheap_score(
+          history_path,
+          item,
+          days=score_days,
+          min_samples=min_samples,
+          tz=tz,
         )
 
-        for row in rows:
 
-            price = int(
-                row[
-                    "price"
-                ]
-            )
+        output.append(
+            item
+        )
 
-            at_or_above = sum(
 
-                1
 
-                for other_price
-                in pool
-
-                if (
-                    other_price
-                    >=
-                    price
-                )
-            )
-
-            cheap_score = round(
-
-                at_or_above
-                /
-                len(pool)
-                *
-                100
-            )
-
-            if average:
-
-                diff_percent = (
-
-                    (
-                        average
-                        -
-                        price
-                    )
-
-                    /
-                    average
-
-                    *
-                    100
-                )
-
-            else:
-
-                diff_percent = 0
-
-            options = (
-                parse_options(
-                    row.get(
-                        "flight_options_json"
-                    )
-                )
-            )
-
-            deals.append(
-                {
-
-                    "origin":
-                        row[
-                            "origin"
-                        ],
-
-                    "destination":
-                        row[
-                            "destination"
-                        ],
-
-                    "departure_date":
-                        row[
-                            "departure_date"
-                        ],
-
-                    "return_date":
-                        row[
-                            "return_date"
-                        ],
-
-                    "stay_days":
-                        int(
-                            row[
-                                "stay_days"
-                            ]
-                        ),
-
-                    "price":
-                        price,
-
-                    "currency":
-                        "TWD",
-
-                    "passengers":
-                        int(
-                            row.get(
-                                "passengers"
-                            )
-                            or
-                            1
-                        ),
-
-                    "flight_options":
-                        options,
-
-                    "same_price_option_count":
-                        len(
-                            options
-                        ),
-
-                    "recent_average_price":
-                        round(
-                            average
-                        ),
-
-                    "diff_percent":
-                        round(
-                            diff_percent,
-                            1,
-                        ),
-
-                    "cheap_score":
-                        cheap_score,
-
-                    "score_sample_size":
-                        len(
-                            pool
-                        ),
-
-                    "score_reliable":
-                        (
-                            len(pool)
-                            >=
-                            min_samples
-                        ),
-
-                    "checked_at":
-                        row.get(
-                            "checked_at",
-                            "",
-                        ),
-                }
-            )
-
-    deals.sort(
-        key=lambda deal:
+    output.sort(
+        key=lambda x:
             (
-                -deal[
+                -(x.get(
                     "cheap_score"
-                ],
-                -deal[
-                    "diff_percent"
-                ],
-                deal[
-                    "price"
-                ],
+                ) or 0),
+
+                x.get(
+                    "price",
+                    999999,
+                )
             )
     )
 
-    limit = int(
+
+
+    max_deals=int(
         cfg.get(
             "max_deals_to_publish",
-            3000,
+            0,
         )
     )
 
-    if limit > 0:
+    if max_deals > 0:
 
-        deals = deals[
-            :limit
-        ]
-
-    return {
-
-        "generated_at":
-            dt.datetime.now(
-                dt.timezone.utc
-            )
-            .replace(
-                microsecond=0
-            )
-            .isoformat(),
-
-        "search_start_date":
-            today.isoformat(),
-
-        "search_end_date":
-            annual_end.isoformat(),
-
-        "near_term_end_date":
-            near_end.isoformat(),
-
-        "origins":
-            cfg[
-                "origins"
-            ],
-
-        "destinations":
-            cfg[
-                "destinations"
-            ],
-
-        "adults":
-            int(
-                cfg.get(
-                    "adults",
-                    1,
-                )
-            ),
-
-        "stay_min_days":
-            min(
-                stays(cfg)
-            ),
-
-        "stay_max_days":
-            max(
-                stays(cfg)
-            ),
-
-        "history_days":
-            int(
-                cfg.get(
-                    "history_days",
-                    60,
-                )
-            ),
-
-        "checked_this_run":
-            run_success,
-
-        "attempted_this_run":
-            attempted,
-
-        "near_checks_planned":
-            sum(
-                near_quota.values()
-            ),
-
-        "annual_checks_planned":
-            sum(
-                annual_quota.values()
-            ),
-
-        "total_checks_so_far":
-            int(
-                state.get(
-                    "total_attempts",
-                    0,
-                )
-            ),
-
-        "total_combos_in_grid":
-            total_grid,
-
-        "route_near_quota":
-            near_quota,
-
-        "route_annual_quota":
-            annual_quota,
-
-        "deal_count":
-            len(
-                deals
-            ),
-
-        "deals":
-            deals,
-    }
+        output=output[:max_deals]
 
 
-# ============================================================
-# SAVE JSON
-# ============================================================
 
-def save_json(
-    path: Path,
-    data: Any,
-):
-
-    temporary = (
-        path.with_suffix(
-            path.suffix
-            +
-            ".tmp"
-        )
-    )
-
-    temporary.write_text(
-
+    path.write_text(
         json.dumps(
-            data,
+            {
+                "updated_at":
+                    dt.datetime.now(
+                        ZoneInfo(
+                            "Asia/Taipei"
+                        )
+                    ).isoformat(),
+
+                "count":
+                    len(output),
+
+                "results":
+                    output,
+
+            },
             ensure_ascii=False,
             indent=2,
         ),
-
         encoding="utf-8",
     )
 
-    temporary.replace(
-        path
+
+
+
+
+# ============================================================
+# SAVE STATE
+# ============================================================
+
+
+def save_state(
+    path,
+    state,
+):
+
+
+    path.write_text(
+        json.dumps(
+            state,
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
     )
+
+
+
 
 
 # ============================================================
 # MAIN
 # ============================================================
 
+
 def main():
 
-    cfg = load_config()
 
-    history_path = (
-        path_from_config(
-            cfg,
-            "history",
+    cfg=load_config()
+
+
+    history_path=data_path(
+        cfg,
+        "history",
+    )
+
+
+    latest_path=data_path(
+        cfg,
+        "latest",
+    )
+
+
+    state_path=data_path(
+        cfg,
+        "state",
+    )
+
+
+
+    ensure_history(
+        history_path
+    )
+
+
+
+    today=dt.datetime.now(
+        ZoneInfo(
+            cfg.get(
+                "timezone",
+                "Asia/Taipei",
+            )
         )
-    )
+    ).date()
 
-    latest_path = (
-        path_from_config(
-            cfg,
-            "latest",
-        )
-    )
 
-    state_path = (
-        path_from_config(
-            cfg,
-            "state",
-        )
-    )
 
-    timezone = ZoneInfo(
-        cfg.get(
-            "timezone",
-            "Asia/Taipei",
-        )
-    )
-
-    today = (
-        dt.datetime.now(
-            timezone
-        ).date()
-    )
-
-    routes = [
-
+    routes=[
         route_key(
-            origin,
-            destination,
+            o,
+            d,
         )
 
-        for origin
-        in cfg["origins"]
+        for o in cfg["origins"]
 
-        for destination
-        in cfg["destinations"]
+        for d in cfg["destinations"]
     ]
 
-    state = (
-        load_state(
-            cfg,
-            state_path,
-            today,
-            routes,
-        )
+
+
+    state=load_state(
+        cfg,
+        state_path,
+        routes,
     )
 
-    (
-        batch,
-        near_quota,
-        annual_quota,
-        total_grid,
-        annual_end,
-        near_end,
-    ) = build_dual_track_batch(
+
+
+    print(
+        "================================"
+    )
+
+    print(
+        " Flight Deal Watcher"
+    )
+
+    print(
+        " Adaptive Price Drop Detection"
+    )
+
+    print(
+        "================================"
+    )
+
+
+
+    batch=build_search_batch(
         cfg,
         state,
         today,
     )
 
-    print(
-        "=== Flight Deal Watcher / 雙軌搜尋 ==="
-    )
+
 
     print(
-        f"全年：{today} -> {annual_end}"
+        "本輪查詢:",
+        len(batch),
     )
 
-    print(
-        f"近期：{today} -> {near_end}"
-    )
 
-    print(
-        "停留："
-        f"{min(stays(cfg))}"
-        "～"
-        f"{max(stays(cfg))}"
-        " 天"
-    )
 
-    print(
-        f"全年網格：{total_grid:,} 組"
-    )
+    results=[]
 
-    print(
-        "本輪：近期 "
-        f"{sum(near_quota.values())}"
-        " + 全年 "
-        f"{sum(annual_quota.values())}"
-        " = "
-        f"{len(batch)} 組"
-    )
 
-    print(
-        "各目的地配額："
-    )
 
-    for route in routes:
+    for index,task in enumerate(batch):
+
 
         print(
-            "  "
-            +
-            route.replace(
-                "|",
-                " -> ",
-            )
-            +
-            "：近期 "
-            +
-            str(
-                near_quota[
-                    route
-                ]
-            )
-            +
-            " / 全年 "
-            +
-            str(
-                annual_quota[
-                    route
-                ]
-            )
+            f"[{index+1}/{len(batch)}]",
+            task["origin"],
+            "->",
+            task["destination"],
+            task["departure_date"],
+            task["track"],
         )
 
-    successful_rows = []
 
-    delay = float(
-        cfg.get(
-            "request_delay_seconds",
-            0.0,
-        )
-    )
 
-    for index, task in enumerate(
-        batch,
-        1,
-    ):
-
-        print(
-            f"[{index}/{len(batch)}] "
-            f"{task['track']:6s} "
-            f"{task['origin']}"
-            "->"
-            f"{task['destination']} "
-            f"{task['departure_date']}"
-            "~"
-            f"{task['return_date']} "
-            f"{task['stay_days']}d"
-        )
-
-        row = search_one(
+        item=process_task(
             task,
             cfg,
+            state,
+            history_path,
         )
 
-        state[
-            "total_attempts"
-        ] = (
-            int(
-                state.get(
-                    "total_attempts",
-                    0,
+
+        if item:
+
+            results.append(
+                item
+            )
+
+
+
+        state["total_attempts"] += 1
+
+
+
+        # 避免過快請求
+
+        time.sleep(
+            float(
+                cfg.get(
+                    "request_delay_seconds",
+                    1,
                 )
             )
-            +
-            1
         )
 
-        if row:
 
-            successful_rows.append(
-                row
-            )
 
-            print(
-                "  OK "
-                f"NT${row['price']:,}"
-                " / options="
-                f"{len(parse_options(row['flight_options_json']))}"
-            )
-
-        else:
-
-            print(
-                "  NO VALID RESULT"
-            )
-
-        if (
-            delay > 0
-            and
-            index < len(batch)
-        ):
-
-            time.sleep(
-                delay
-            )
-
-    append_history(
-        history_path,
-        successful_rows,
-    )
-
-    history = (
-        load_history(
-            history_path
-        )
-    )
-
-    latest = (
-        build_latest(
-            cfg,
-            history,
-            today,
-            annual_end,
-            near_end,
-            state,
-            total_grid,
-            near_quota,
-            annual_quota,
-            len(
-                successful_rows
-            ),
-            len(batch),
-        )
-    )
-
-    save_json(
+    write_latest(
         latest_path,
-        latest,
+        results,
+        cfg,
+        history_path,
     )
 
-    save_json(
+
+
+    save_state(
         state_path,
         state,
     )
 
-    print(
-        "=== 完成 ==="
-    )
+
 
     print(
-        f"本次嘗試：{len(batch)}"
-    )
-
-    print(
-        "成功取得價格："
-        f"{len(successful_rows)}"
-    )
-
-    print(
-        "網站 deals："
-        f"{len(latest['deals'])}"
+        "完成"
     )
 
 
-if __name__ == "__main__":
+    print(
+        "成功:",
+        len(results),
+    )
+
+
+
+
+
+if __name__=="__main__":
 
     main()

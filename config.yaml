@@ -14,20 +14,6 @@ destinations:
 # 以台灣日期判斷「今天」
 timezone: Asia/Taipei
 
-# 永遠搜尋今天開始往後 12 個月
-search_months_ahead: 12
-
-# 雙軌中的近期高頻範圍
-near_term_days: 90
-
-# 每次近期軌搜尋數
-# 8 個目的地 -> 每個目的地 12 組
-near_checks_per_run: 96
-
-# 每次全年軌搜尋數
-# 8 個目的地 -> 每個目的地 24 組
-annual_checks_per_run: 192
-
 stay_duration:
   min_days: 5
   max_days: 15
@@ -43,12 +29,37 @@ seat: economy
 # 僅直飛
 direct_only: true
 
+# ------------------------------------------------------------
+# 三層自適應搜尋
+# urgent：近期高頻，最容易抓到突降
+# hot：中期，只搜常見停留天數
+# explore：全年探索
+# ------------------------------------------------------------
+
+# urgent：未來 30 天，全停留天數
+urgent_days: 30
+# 8 個目的地 -> 每個目的地 60 組
+urgent_checks_per_run: 480
+
+# hot：未來 180 天，只搜常見停留天數 (5/7/10/14)
+hot_days: 180
+# 8 個目的地 -> 每個目的地 50 組
+hot_checks_per_run: 400
+
+# explore：往後 12 個月，只搜 7 天停留
+explore_months_ahead: 12
+# 8 個目的地 -> 每個目的地 15 組
+explore_checks_per_run: 120
+
+# 跌幅達到這個百分比才標記 PRICE_DROP
+price_drop_alert_percent: 20
+
 # 第一次有價格但抓不到航空公司/時間時，再試一次
 metadata_retry_count: 1
 metadata_retry_delay_seconds: 1.0
 
 # 每個日期組合之間稍微停一下
-request_delay_seconds: 0.3
+request_delay_seconds: 1
 
 # Cheap Score 使用近期價格池
 history_days: 60
