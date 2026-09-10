@@ -1,5 +1,0 @@
-checked_at,origin,destination,departure_date,return_date,stay_days,price,price_raw,google_price_level
-2026-09-09T16:16:21.415710+00:00,TPE,NRT,2026-10-08,2026-10-19,11,587.0,$587,typical
-2026-09-09T16:16:21.415710+00:00,TPE,NRT,2026-10-08,2026-10-23,15,605.0,$605,high
-2026-09-09T16:16:21.415710+00:00,TPE,NRT,2026-10-15,2026-10-20,5,523.0,$523,typical
-2026-09-09T16:16:21.415710+00:00,TPE,NRT,2026-10-15,2026-10-24,9,540.0,$540,typical
