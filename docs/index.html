@@ -1041,6 +1041,10 @@ footer{
           停留天數短 → 長
         </option>
 
+        <option value="dateDesc">
+          出發日期遠 → 近
+        </option>
+
       </select>
 
     </div>
@@ -1066,6 +1070,12 @@ footer{
   <footer id="updated">
     —
   </footer>
+
+  <div
+    id="availableDatesBox"
+    style="margin-top:20px; color:var(--muted); font-size:12px; line-height:1.6;"
+  >
+  </div>
 
 </div>
 
@@ -2621,6 +2631,22 @@ function sortRows(
 
         if(
           type===
+          "dateDesc"
+        ){
+
+          return String(
+            b.departure_date
+          )
+          .localeCompare(
+            String(
+              a.departure_date
+            )
+          );
+        }
+
+
+        if(
+          type===
           "stay"
         ){
 
@@ -2813,6 +2839,41 @@ function renderCurrent(){
       filterSummary(
         CURRENT_FILTERS
       );
+
+
+  /* 新增：動態更新「目前篩選有機票出發日期」 */
+  const uniqueDates=
+    [
+      ...new Set(
+        rows.map(
+          r=>
+            r.departure_date
+        )
+      )
+    ]
+    .filter(Boolean)
+    .sort();
+
+  if(
+    uniqueDates.length > 0
+  ){
+
+    $("availableDatesBox")
+      .innerHTML=`
+        <div>目前篩選有機票出發日期：</div>
+        <div style="color: var(--text); margin: 6px 0; line-height: 1.8;">
+          ${uniqueDates.join("、")}
+        </div>
+        <div>· 共 ${uniqueDates.length} 個日期</div>
+      `;
+  }
+
+  else{
+
+    $("availableDatesBox")
+      .innerHTML=
+        "";
+  }
 
 
   if(
