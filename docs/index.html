@@ -488,6 +488,17 @@ h1{
   color:var(--blue);
 }
 
+.badge.drop{
+  background:rgba(255,77,77,.16);
+  color:#ff5a5a;
+  animation:dropPulse 2s ease-in-out infinite;
+}
+
+@keyframes dropPulse{
+  0%,100%{opacity:1;}
+  50%{opacity:.65;}
+}
+
 .options{
   display:flex;
   flex-direction:column;
@@ -805,6 +816,7 @@ h1{
     <div class="result-sort">
       <label for="sortBy">結果排序：</label>
       <select id="sortBy">
+        <option value="drop">🔻 剛降價優先</option>
         <option value="cheap">相對便宜優先</option>
         <option value="priceAsc">價格低 → 高</option>
         <option value="priceDesc">價格高 → 低</option>
@@ -1039,6 +1051,7 @@ function cardHtml(deal,filters){
       </div>
       <div class="price">${money(deal.price)} <span class="mini">1 人來回</span></div>
       <div class="badges">
+        ${deal.price_drop?`<span class="badge drop">🔻 剛降價 ${Number(deal.price_drop_percent||0).toFixed(1)}%（原 ${money(deal.previous_price)}）</span>`:""}
         <span class="badge">🗓 停留 ${safe(deal.stay_days)} 天</span>
         <span class="badge pink">📉 較近期平均 ${Number(deal.diff_percent||0)>=0?"低":"高"} ${Math.abs(Number(deal.diff_percent||0)).toFixed(1)}%</span>
         <span class="badge gold">🔥 Score ${safe(deal.cheap_score)}</span>
@@ -1188,6 +1201,7 @@ function applyFilters(){
 function sortRows(rows){
   const t=$("sortBy").value;
   return[...rows].sort((a,b)=>{
+    if(t==="drop")return(Number(b.price_drop?1:0)-Number(a.price_drop?1:0))||(Number(b.diff_percent||0)-Number(a.diff_percent||0))||(Number(a.price)-Number(b.price));
     if(t==="priceAsc")return Number(a.price)-Number(b.price);
     if(t==="priceDesc")return Number(b.price)-Number(a.price);
     if(t==="discount")return Number(b.diff_percent||0)-Number(a.diff_percent||0);

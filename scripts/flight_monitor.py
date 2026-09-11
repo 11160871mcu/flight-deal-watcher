@@ -1640,6 +1640,10 @@ def latest_combos(
 
     latest = {}
 
+    # key -> 這個組合「上一次」查到的價格
+    # 用來給 Price Drop 偵測比對，不是排名，是看變化量。
+    previous_price_map = {}
+
     ordered_history = sorted(
 
         history,
@@ -1747,6 +1751,18 @@ def latest_combos(
             )
         )
 
+        # 在這筆資料覆蓋掉 latest[key] 之前，
+        # 先把「即將被取代的價格」記成這組合的上一次價格。
+        # 依時間順序逐筆覆蓋，跑到最後 previous_price_map[key]
+        # 自然會是「最新一筆之前那一筆」的價格。
+        if previous:
+
+            previous_price_map[
+                key
+            ] = row_price(
+                previous
+            )
+
         # 如果同一日期組合價格沒變，
         # 可以保留之前成功抓到的航空公司/時間 metadata。
         if (
@@ -1802,7 +1818,7 @@ def latest_combos(
             key
         ] = item
 
-    return latest
+    return latest, previous_price_map
 
 
 # ============================================================
@@ -1823,7 +1839,7 @@ def build_latest(
     attempted,
 ):
 
-    current = (
+    current, previous_price_map = (
         latest_combos(
             history,
             cfg,
@@ -1832,11 +1848,20 @@ def build_latest(
         )
     )
 
+    # 跌幅達這個百分比才算「突然降價」，
+    # 跟 Cheap Score（排名）是兩件事：這裡看的是變化量。
+    price_drop_alert_percent = float(
+        cfg.get(
+            "price_drop_alert_percent",
+            20,
+        )
+    )
+
     grouped = defaultdict(
         list
     )
 
-    for row in current.values():
+    for key, row in current.items():
 
         grouped[
             route_key(
@@ -1848,7 +1873,7 @@ def build_latest(
                 ],
             )
         ].append(
-            row
+            (key, row)
         )
 
     cutoff = (
@@ -1885,7 +1910,7 @@ def build_latest(
                 ]
             )
 
-            for row in rows
+            for _, row in rows
 
             if checked_time(
                 str(
@@ -1913,7 +1938,7 @@ def build_latest(
                     ]
                 )
 
-                for row
+                for _, row
                 in rows
             ]
 
@@ -1927,7 +1952,7 @@ def build_latest(
             len(pool)
         )
 
-        for row in rows:
+        for key, row in rows:
 
             price = int(
                 row[
@@ -1986,6 +2011,51 @@ def build_latest(
                     )
                 )
             )
+
+            # Price Drop 偵測：
+            # 跟「同一組出發日/回程日/停留天數」上一次查到的價格比較，
+            # 不是跟歷史排名比，是看這次跟上次差多少。
+            previous_price = (
+                previous_price_map.get(
+                    key
+                )
+            )
+
+            price_drop_percent = None
+
+            price_drop = False
+
+            if (
+                previous_price
+                and
+                previous_price > 0
+            ):
+
+                drop_percent = (
+
+                    (
+                        previous_price
+                        -
+                        price
+                    )
+                    /
+                    previous_price
+                    *
+                    100
+                )
+
+                price_drop_percent = round(
+                    drop_percent,
+                    1,
+                )
+
+                if (
+                    drop_percent
+                    >=
+                    price_drop_alert_percent
+                ):
+
+                    price_drop = True
 
             deals.append(
                 {
@@ -2066,6 +2136,15 @@ def build_latest(
                             min_samples
                         ),
 
+                    "previous_price":
+                        previous_price,
+
+                    "price_drop_percent":
+                        price_drop_percent,
+
+                    "price_drop":
+                        price_drop,
+
                     "checked_at":
                         row.get(
                             "checked_at",
@@ -2074,9 +2153,16 @@ def build_latest(
                 }
             )
 
+    # 剛降價的優先排到最前面，
+    # 同樣有沒有降價的情況下才照 Cheap Score 排。
     deals.sort(
         key=lambda deal:
             (
+                0
+                if deal[
+                    "price_drop"
+                ]
+                else 1,
                 -deal[
                     "cheap_score"
                 ],

@@ -52,6 +52,11 @@ metadata_retry_delay_seconds: 1.0
 # 每個日期組合之間稍微停一下
 request_delay_seconds: 0.3
 
+# Price Drop 偵測：
+# 同一組出發日/回程日/停留天數，這次比上一次查到的價格
+# 跌幅達到這個百分比才標記為「突然降價」（跟 Cheap Score 是不同訊號）
+price_drop_alert_percent: 20
+
 # Cheap Score 使用近期價格池
 history_days: 60
 
