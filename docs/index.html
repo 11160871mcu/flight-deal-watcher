@@ -734,23 +734,19 @@ footer{
         <select id="scoreMin">
 
           <option value="0">
-            不限
+            不限（含偏貴）
+          </option>
+
+          <option value="40">
+            40+（預設，隱藏低性價比票）
           </option>
 
           <option value="70">
-            70+
-          </option>
-
-          <option value="80">
-            80+
+            70+（不錯以上）
           </option>
 
           <option value="90">
-            90+
-          </option>
-
-          <option value="95">
-            95+
+            90+（只看超值）
           </option>
 
         </select>
@@ -983,6 +979,20 @@ footer{
 
         </div>
 
+
+        <div
+          id="summaryDatesBox"
+          style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; line-height:1.8;"
+        >
+        </div>
+
+
+        <div
+          id="summaryUpdatedBox"
+          style="margin-top:8px; color:var(--muted); font-size:11px;"
+        >
+        </div>
+
       </div>
 
     </details>
@@ -1034,7 +1044,7 @@ footer{
         </option>
 
         <option value="date">
-          最近出發優先
+          出發日期：近 → 遠
         </option>
 
         <option value="stay">
@@ -1042,13 +1052,27 @@ footer{
         </option>
 
         <option value="dateDesc">
-          出發日期遠 → 近
+          出發日期：遠 → 近
         </option>
 
       </select>
 
     </div>
 
+  </div>
+
+
+  <div
+    id="scoreBands"
+    style="margin:-6px 0 13px; font-size:12px; color:var(--muted); display:flex; gap:16px; flex-wrap:wrap;"
+  >
+  </div>
+
+
+  <div
+    id="cheapestRankBox"
+    style="margin:0 0 16px; padding:14px 16px; border:1px solid var(--line); border-radius:12px; background:rgba(20,30,51,.6);"
+  >
   </div>
 
 
@@ -1063,17 +1087,6 @@ footer{
   <div
     id="grid"
     class="grid"
-  >
-  </div>
-
-
-  <footer id="updated">
-    —
-  </footer>
-
-  <div
-    id="availableDatesBox"
-    style="margin-top:20px; color:var(--muted); font-size:12px; line-height:1.6;"
   >
   </div>
 
@@ -2052,6 +2065,22 @@ function cardHtml(
           ""
         }
 
+        ${
+          deal.score_reliable === false
+
+          ?
+
+          `
+          <span class="badge pink">
+            ⚠ 樣本較少，Score 僅供參考
+          </span>
+          `
+
+          :
+
+          ""
+        }
+
       </div>
 
 
@@ -2229,13 +2258,32 @@ function fillControls(
     [...airlineSet]
 
       .sort(
-        (a,b)=>
+        (a,b)=>{
 
-          airlineName(a)
-            .localeCompare(
-              airlineName(b),
-              "zh-Hant"
-            )
+          // 「航空公司資料未提供」永遠排最後，
+          // 其餘依英文名稱開頭字母排序（A→Z）
+          if(
+            a === UNKNOWN_AIRLINE
+          ){
+
+            return 1;
+          }
+
+          if(
+            b === UNKNOWN_AIRLINE
+          ){
+
+            return -1;
+          }
+
+          return a.localeCompare(
+            b,
+            "en",
+            {
+              sensitivity: "base"
+            }
+          );
+        }
       );
 
 
@@ -2406,11 +2454,161 @@ function getFilters(){
    APPLY FILTERS
 ========================================================= */
 
+function renderScoreBands(
+  counts,
+  scoreMinValue
+){
+
+  const box=
+    $("scoreBands");
+
+  if(!box){
+
+    return;
+  }
+
+  const hiddenNote=
+
+    scoreMinValue > 0
+
+    ?
+
+    "（目前已隱藏，可調整上方 Cheap Score 篩選查看）"
+
+    :
+
+    "（目前顯示中）";
+
+  box.innerHTML=`
+
+    <span>🔥 超值 ${counts.hot} 組（Score 90+）</span>
+    <span>✈️ 不錯 ${counts.good} 組（Score 70～89）</span>
+    <span>📌 一般 ${counts.normal} 組（Score 40～69）</span>
+    <span>💰 偏貴 ${counts.expensive} 組（Score &lt; 40）${hiddenNote}</span>
+  `;
+}
+
+
+function renderCheapestRank(
+  rows
+){
+
+  const box=
+    $("cheapestRankBox");
+
+  if(!box){
+
+    return;
+  }
+
+  if(!rows.length){
+
+    box.innerHTML=
+      "";
+
+    return;
+  }
+
+  // 同一天、同一目的地
+  // 可能因為不同停留天數出現重複，
+  // 只留下該天該目的地最便宜的那一筆
+  const bestByKey=
+    new Map();
+
+  rows.forEach(
+    deal=>{
+
+      const key=
+
+        deal.departure_date
+        +
+        "|"
+        +
+        deal.destination;
+
+      const existing=
+        bestByKey.get(key);
+
+      if(
+        !existing
+        ||
+        Number(deal.price)
+        <
+        Number(existing.price)
+      ){
+
+        bestByKey.set(
+          key,
+          deal
+        );
+      }
+    }
+  );
+
+  const ranked=
+
+    [...bestByKey.values()]
+
+      .sort(
+        (a,b)=>
+
+          Number(a.price)
+          -
+          Number(b.price)
+      )
+
+      .slice(0, 8);
+
+  const rowsHtml=
+
+    ranked
+
+      .map(
+        deal=>{
+
+          const d=
+            new Date(
+              deal.departure_date
+            );
+
+          const md=
+
+            `${String(d.getMonth()+1).padStart(2,"0")}/`
+
+            +
+
+            `${String(d.getDate()).padStart(2,"0")}`;
+
+          return `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid var(--line); font-size:13px;">
+              <span>${md}　${airportCn(deal.destination)}</span>
+              <span style="color:var(--gold); font-weight:900;">${money(deal.price)}</span>
+            </div>
+          `;
+        }
+      )
+
+      .join("");
+
+  box.innerHTML=`
+
+    <div style="font-size:13px; font-weight:900; color:var(--blue); margin-bottom:8px;">
+      📅 目前條件下最便宜出發日期 Top ${ranked.length}
+    </div>
+
+    ${rowsHtml}
+  `;
+}
+
+
 function applyFilters(){
 
   const filters=
     getFilters();
 
+  // 先套用「非 Score」的所有篩選條件，
+  // 這樣分層統計（超值/不錯/一般/偏貴）
+  // 才會反映使用者實際選的目的地、天數、日期、航空公司
   let rows=[
     ...(DATA.deals||[])
   ];
@@ -2482,24 +2680,6 @@ function applyFilters(){
 
 
         /*
-          SCORE
-        */
-
-        if(
-          filters.scoreMin
-          &&
-          Number(
-            deal.cheap_score||0
-          )
-          <
-          filters.scoreMin
-        ){
-
-          return false;
-        }
-
-
-        /*
           DATE
         */
 
@@ -2545,11 +2725,89 @@ function applyFilters(){
     );
 
 
+  /*
+    分層統計：
+    🔥 超值 Score >= 90
+    ✈️ 不錯 70 <= Score < 90
+    📌 一般 40 <= Score < 70
+    💰 偏貴 Score < 40
+  */
+
+  const bandCounts={
+    hot: 0,
+    good: 0,
+    normal: 0,
+    expensive: 0
+  };
+
+  rows.forEach(
+    deal=>{
+
+      const score=
+        Number(
+          deal.cheap_score
+          ||
+          0
+        );
+
+      if(score >= 90){
+
+        bandCounts.hot++;
+      }
+
+      else if(score >= 70){
+
+        bandCounts.good++;
+      }
+
+      else if(score >= 40){
+
+        bandCounts.normal++;
+      }
+
+      else{
+
+        bandCounts.expensive++;
+      }
+    }
+  );
+
+  renderScoreBands(
+    bandCounts,
+    filters.scoreMin
+  );
+
+
+  /*
+    最後才套用 Score 篩選，
+    預設 40+，把「偏貴」的組合收起來
+  */
+
+  if(filters.scoreMin){
+
+    rows=
+      rows.filter(
+        deal=>
+          Number(
+            deal.cheap_score
+            ||
+            0
+          )
+          >=
+          filters.scoreMin
+      );
+  }
+
+
   CURRENT_RESULTS=
     rows;
 
   CURRENT_FILTERS=
     filters;
+
+  renderCheapestRank(
+    rows
+  );
 
   renderCurrent();
 }
@@ -2858,7 +3116,7 @@ function renderCurrent(){
     uniqueDates.length > 0
   ){
 
-    $("availableDatesBox")
+    $("summaryDatesBox")
       .innerHTML=`
         <div>目前篩選有機票出發日期：</div>
         <div style="color: var(--text); margin: 6px 0; line-height: 1.8;">
@@ -2870,7 +3128,7 @@ function renderCurrent(){
 
   else{
 
-    $("availableDatesBox")
+    $("summaryDatesBox")
       .innerHTML=
         "";
   }
@@ -3081,7 +3339,7 @@ function resetFilters(){
 
 
   $("scoreMin").value=
-    "0";
+    "40";
 
 
   $("dateFrom").value=
@@ -3357,7 +3615,7 @@ async function load(){
       );
 
 
-    $("updated")
+    $("summaryUpdatedBox")
       .textContent=
 
         `最後更新：${updated.toLocaleString("zh-TW",{hour12:false})}`
