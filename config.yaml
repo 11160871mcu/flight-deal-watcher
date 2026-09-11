@@ -21,12 +21,14 @@ search_months_ahead: 12
 near_term_days: 90
 
 # 每次近期軌搜尋數
-# 8 個目的地 -> 每個目的地 12 組
-near_checks_per_run: 96
+# 8 個目的地 -> 每個目的地 6 組
+# 排程改成每 3 小時一輪（一天 8 輪），數量砍半以維持每天總量不變
+near_checks_per_run: 48
 
 # 每次全年軌搜尋數
-# 8 個目的地 -> 每個目的地 24 組
-annual_checks_per_run: 192
+# 8 個目的地 -> 每個目的地 12 組
+# 排程改成每 3 小時一輪（一天 8 輪），數量砍半以維持每天總量不變
+annual_checks_per_run: 96
 
 stay_duration:
   min_days: 5
