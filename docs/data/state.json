@@ -3,26 +3,26 @@
   "grid_signature": "2a172851f8b7277c220a",
   "grid_start_date": "2026-09-12",
   "near_cursor_by_route": {
-    "TPE|NRT": 73,
-    "TPE|HND": 73,
-    "TPE|KIX": 73,
-    "TPE|FUK": 73,
-    "TPE|CTS": 73,
-    "TPE|OKA": 73,
-    "TPE|ICN": 73,
-    "TPE|PUS": 73
+    "TPE|NRT": 79,
+    "TPE|HND": 79,
+    "TPE|KIX": 79,
+    "TPE|FUK": 79,
+    "TPE|CTS": 79,
+    "TPE|OKA": 79,
+    "TPE|ICN": 79,
+    "TPE|PUS": 79
   },
   "annual_cursor_by_route": {
-    "TPE|NRT": 169,
-    "TPE|HND": 169,
-    "TPE|KIX": 169,
-    "TPE|FUK": 169,
-    "TPE|CTS": 169,
-    "TPE|OKA": 169,
-    "TPE|ICN": 169,
-    "TPE|PUS": 169
+    "TPE|NRT": 181,
+    "TPE|HND": 181,
+    "TPE|KIX": 181,
+    "TPE|FUK": 181,
+    "TPE|CTS": 181,
+    "TPE|OKA": 181,
+    "TPE|ICN": 181,
+    "TPE|PUS": 181
   },
   "near_rotation": 0,
   "annual_rotation": 0,
-  "total_attempts": 2016
+  "total_attempts": 2160
 }
