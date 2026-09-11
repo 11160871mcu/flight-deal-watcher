@@ -1122,15 +1122,15 @@ function renderCheapestRank(rows){
 
   box.style.display="block";
   
-  // 找出同一天、同一目的地的最低票價
+  // 找出「每一天」的絕對最低票價（不分目的地，一天只留一筆）
   const bestByKey=new Map();
   rows.forEach(deal=>{
-    const k=deal.departure_date+"|"+deal.destination;
+    const k=deal.departure_date; // 只拿日期當作 Key
     const ex=bestByKey.get(k);
     if(!ex||Number(deal.price)<Number(ex.price))bestByKey.set(k,deal);
   });
 
-  // 改為：依照「出發日期」由近到遠排序，且不限制顯示數量
+  // 依照「出發日期」由近到遠排序
   const ranked=[...bestByKey.values()].sort((a,b)=>
     String(a.departure_date).localeCompare(String(b.departure_date))
   );
