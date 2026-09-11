@@ -810,8 +810,8 @@ h1{
         <option value="priceDesc">價格高 → 低</option>
         <option value="discount">低於近期平均最多</option>
         <option value="date">出發日期：近 → 遠</option>
-        <option value="dateDesc">出發日期：遠 → 近</option>
         <option value="stay">停留天數短 → 長</option>
+        <option value="dateDesc">出發日期：遠 → 近</option>
       </select>
     </div>
   </div>
@@ -1121,6 +1121,8 @@ function renderCheapestRank(rows){
   if(!rows.length){box.style.display="none";return;}
 
   box.style.display="block";
+  
+  // 找出同一天、同一目的地的最低票價
   const bestByKey=new Map();
   rows.forEach(deal=>{
     const k=deal.departure_date+"|"+deal.destination;
@@ -1128,21 +1130,27 @@ function renderCheapestRank(rows){
     if(!ex||Number(deal.price)<Number(ex.price))bestByKey.set(k,deal);
   });
 
-  const ranked=[...bestByKey.values()].sort((a,b)=>Number(a.price)-Number(b.price)).slice(0,8);
+  // 改為：依照「出發日期」由近到遠排序，且不限制顯示數量
+  const ranked=[...bestByKey.values()].sort((a,b)=>
+    String(a.departure_date).localeCompare(String(b.departure_date))
+  );
+
   const days=["週日","週一","週二","週三","週四","週五","週六"];
   
   const optionsHtml=ranked.map(deal=>{
     const d=new Date(deal.departure_date);
+    // 加上年份的日期格式
     const md=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")} (${days[d.getDay()]})`;
     return`<option value="${deal.departure_date}">${md} ｜ ${airportCn(deal.destination)} ｜ ${money(deal.price)}</option>`;
   }).join("");
 
+  // 更新標題名稱與下拉選單提示文字
   box.innerHTML=`
     <div style="font-size:13px; font-weight:900; color:var(--blue); margin-bottom:10px;">
-      📅 最便宜出發日期 Top ${ranked.length}
+      📅 各出發日期最低票價
     </div>
     <select style="width:100%; height:46px; border:1px solid var(--line); border-radius:8px; background:var(--input); color:var(--gold); padding:0 12px; font-size:15px; font-weight:bold; cursor:pointer; outline:none; appearance:auto;">
-      <option value="" disabled selected>▾ 點開下拉選單：查看最便宜的日期與價格</option>
+      <option value="" disabled selected>▾ 點開下拉選單：查看每日最低價格</option>
       ${optionsHtml}
     </select>
   `;
@@ -1209,10 +1217,76 @@ function renderCurrent(){
   $("activeSummary").textContent=filterSummary(CURRENT_FILTERS);
 
   const u=[...new Set(rows.map(r=>r.departure_date))].filter(Boolean).sort();
-  if(u.length>0)$("summaryDatesBox").innerHTML=`<div>目前篩選有機票出發日期：</div><div style="color:var(--text); margin:6px 0; line-height:1.8;">${u.join("、")}</div><div>· 共 ${u.length} 個日期</div>`;
-  else $("summaryDatesBox").innerHTML="";
 
-  if(!rows.length){$("grid").innerHTML="";$("empty").style.display="block";return;}
+  // 日期區間簡化邏輯（包含年份判斷）
+  function formatDateRanges(dates) {
+    if (!dates.length) return "";
+    const ranges = [];
+    let start = dates[0];
+    let prev = dates[0];
+
+    function formatRange(s, e) {
+      const d1 = new Date(s);
+      const d2 = new Date(e);
+      const y1 = d1.getFullYear();
+      const m1 = d1.getMonth() + 1;
+      const day1 = d1.getDate();
+      
+      if (s === e) {
+        return `${y1}/${m1}/${day1}號`;
+      }
+      
+      const y2 = d2.getFullYear();
+      const m2 = d2.getMonth() + 1;
+      const day2 = d2.getDate();
+      
+      if (y1 === y2) {
+        if (m1 === m2) {
+          return `${y1}/${m1}/${day1}~${day2}號`; // 同年同月
+        } else {
+          return `${y1}/${m1}/${day1}~${m2}/${day2}號`; // 同年跨月
+        }
+      } else {
+        return `${y1}/${m1}/${day1}~${y2}/${m2}/${day2}號`; // 跨年
+      }
+    }
+
+    for (let i = 1; i < dates.length; i++) {
+      const curr = dates[i];
+      const diff = Math.round((new Date(curr) - new Date(prev)) / 86400000);
+
+      if (diff === 1) {
+        prev = curr; // 連續日期，更新 prev 往後推
+      } else {
+        ranges.push(formatRange(start, prev)); // 斷開了，把前面的區間存起來
+        start = curr;
+        prev = curr;
+      }
+    }
+    ranges.push(formatRange(start, prev)); // 推入最後一組
+    return ranges.join("、");
+  }
+
+  if(u.length>0){
+    const dateStr = formatDateRanges(u);
+    $("summaryDatesBox").innerHTML=`
+      <div>目前篩選有機票出發日期：</div>
+      <div style="color:var(--gold); margin:6px 0; line-height:1.8; font-weight:900; letter-spacing:0.5px; font-size:14px;">
+        ${dateStr}
+      </div>
+      <div>· 共 ${u.length} 個日期</div>
+    `;
+  }
+  else{
+    $("summaryDatesBox").innerHTML="";
+  }
+
+  if(!rows.length){
+    $("grid").innerHTML="";
+    $("empty").style.display="block";
+    return;
+  }
+  
   $("empty").style.display="none";
   $("grid").innerHTML=rows.map(deal=>cardHtml(deal,CURRENT_FILTERS)).join("");
 }
