@@ -115,11 +115,22 @@ h1{
   border-top:1px solid var(--line);
 }
 
+/* 篩選條件：改為3欄 */
 .filter-grid{
   display:grid;
-  grid-template-columns:
-    repeat(4,minmax(0,1fr));
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap:16px;
+}
+
+/* 同種類別上下堆疊群組 */
+.filter-group{
+  display:flex;
+  flex-direction:column;
   gap:14px;
+  background:rgba(0, 0, 0, 0.15);
+  padding:14px;
+  border-radius:10px;
+  border:1px solid rgba(255, 255, 255, 0.03);
 }
 
 .field label{
@@ -141,8 +152,9 @@ h1{
   font-size:14px;
 }
 
+/* 多選清單區塊：一欄寬度 */
 .multi{
-  grid-column:span 2;
+  grid-column:span 1;
 }
 
 .multi-box{
@@ -194,10 +206,6 @@ h1{
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
-}
-
-.multi-toggle::after{
-  margin-left:0;
 }
 
 .want .multi-title,
@@ -262,8 +270,6 @@ h1{
   padding:9px 8px;
   border-radius:7px;
   cursor:pointer;
-
-  /* 航空公司、目的地文字放大 */
   font-size:14px;
   line-height:1.4;
 }
@@ -566,84 +572,48 @@ h1{
   display:none;
 }
 
-footer{
-  margin-top:25px;
-  color:var(--muted);
-  font-size:11px;
-}
-
-
 @media(max-width:1050px){
-
   .filter-grid{
-    grid-template-columns:
-      repeat(2,1fr);
+    grid-template-columns: repeat(2,1fr);
   }
-
   .grid{
-    grid-template-columns:
-      repeat(2,1fr);
+    grid-template-columns: repeat(2,1fr);
   }
-
 }
-
 
 @media(max-width:650px){
-
   .wrap{
     padding:22px 12px 55px;
   }
-
   .filter-grid{
     grid-template-columns:1fr;
   }
-
-  .multi{
-    grid-column:span 1;
-  }
-
   .grid{
     grid-template-columns:1fr;
   }
-
   .result-header{
     align-items:flex-start;
     flex-direction:column;
   }
-
   .result-sort{
     width:100%;
   }
-
   .result-sort select{
     flex:1;
   }
-
   .filters-title{
     padding:14px;
   }
-
   .filters-body{
     padding:0 14px 14px;
   }
-
-  .multi-toggle{
-    align-items:flex-start;
-  }
-
-  .multi-status{
-    max-width:46%;
-  }
-
   .multi-head{
     align-items:flex-start;
     flex-direction:column;
   }
-
   .action-row{
     flex-direction:column;
   }
-
   .apply,
   .reset{
     width:100%;
@@ -682,316 +652,142 @@ footer{
 
       <div class="filters-body">
 
+        <!-- 群組化與上下排列 -->
         <div class="filter-grid">
 
-      <div class="field">
-
-        <label>
-          最少停留天數
-        </label>
-
-        <select id="stayMin">
-        </select>
-
-      </div>
-
-
-      <div class="field">
-
-        <label>
-          最多停留天數
-        </label>
-
-        <select id="stayMax">
-        </select>
-
-      </div>
-
-
-      <div class="field">
-
-        <label>
-          最高來回價格（NT$）
-        </label>
-
-        <input
-          id="maxPrice"
-          type="number"
-          min="0"
-          step="500"
-          placeholder="不限"
-        >
-
-      </div>
-
-
-      <div class="field">
-
-        <label>
-          最低 Cheap Score
-        </label>
-
-        <select id="scoreMin">
-
-          <option value="0">
-            不限（含偏貴）
-          </option>
-
-          <option value="40">
-            40+（預設，隱藏低性價比票）
-          </option>
-
-          <option value="70">
-            70+（不錯以上）
-          </option>
-
-          <option value="90">
-            90+（只看超值）
-          </option>
-
-        </select>
-
-      </div>
-
-
-      <div class="field">
-
-        <label>
-          最早出發日期
-        </label>
-
-        <input
-          id="dateFrom"
-          type="date"
-        >
-
-      </div>
-
-
-      <div class="field">
-
-        <label>
-          最晚出發日期
-        </label>
-
-        <input
-          id="dateTo"
-          type="date"
-        >
-
-      </div>
-
-
-      <!-- =================================================
-           目的地多選
-      ================================================== -->
-
-      <div class="field multi">
-
-        <label>
-          目的地
-        </label>
-
-        <details class="multi-box dest">
-
-          <summary class="multi-toggle">
-            <span class="multi-title">✓ 目的地</span>
-            <span class="multi-status" id="destStatus">載入中…</span>
-          </summary>
-
-          <div class="multi-panel">
-
-            <div class="multi-head">
-              <span class="multi-hint">可複選，預設全選</span>
-
-              <div class="multi-actions">
-                <button class="small" id="destAll" type="button">全選</button>
-                <button class="small" id="destNone" type="button">全部取消</button>
-              </div>
+          <!-- 日期群組 -->
+          <div class="filter-group">
+            <div class="field">
+              <label>最早出發日期</label>
+              <input id="dateFrom" type="date">
             </div>
-
-            <div id="destinations" class="multi-options"></div>
-
+            <div class="field">
+              <label>最晚出發日期</label>
+              <input id="dateTo" type="date">
+            </div>
           </div>
 
-        </details>
-
-      </div>
-
-
-      <!-- =================================================
-           想要航空公司
-      ================================================== -->
-
-      <div class="field multi">
-
-        <label>
-          想要的航空公司
-        </label>
-
-        <details class="multi-box want">
-
-          <summary class="multi-toggle">
-            <span class="multi-title">✓ 想要的航空公司</span>
-            <span class="multi-status" id="includeStatus">載入中…</span>
-          </summary>
-
-          <div class="multi-panel">
-
-            <div class="multi-head">
-              <span class="multi-hint">可複選，預設全選</span>
-
-              <div class="multi-actions">
-                <button class="small" id="includeAll" type="button">全選</button>
-                <button class="small" id="includeNone" type="button">全部取消</button>
-              </div>
+          <!-- 停留天數群組 -->
+          <div class="filter-group">
+            <div class="field">
+              <label>最少停留天數</label>
+              <select id="stayMin"></select>
             </div>
-
-            <div id="includeAirlines" class="multi-options"></div>
-
+            <div class="field">
+              <label>最多停留天數</label>
+              <select id="stayMax"></select>
+            </div>
           </div>
 
-        </details>
-
-      </div>
-
-
-      <!-- =================================================
-           不要航空公司
-      ================================================== -->
-
-      <div class="field multi">
-
-        <label>
-          不要的航空公司
-        </label>
-
-        <details class="multi-box exclude">
-
-          <summary class="multi-toggle">
-            <span class="multi-title">✕ 排除航空公司</span>
-            <span class="multi-status" id="excludeStatus">未排除</span>
-          </summary>
-
-          <div class="multi-panel">
-
-            <div class="multi-head">
-              <span class="multi-hint">可複選，預設不選</span>
-
-              <div class="multi-actions">
-                <button class="small" id="excludeAll" type="button">全選</button>
-                <button class="small" id="excludeNone" type="button">全部取消</button>
-              </div>
+          <!-- 價格與分數群組 -->
+          <div class="filter-group">
+            <div class="field">
+              <label>最高來回價格（NT$）</label>
+              <input id="maxPrice" type="number" min="0" step="500" placeholder="不限">
             </div>
-
-            <div id="excludeAirlines" class="multi-options"></div>
-
+            <div class="field">
+              <label>最低 Cheap Score</label>
+              <select id="scoreMin">
+                <option value="0">不限（含偏貴）</option>
+                <option value="40">40+（預設，隱藏低性價比票）</option>
+                <option value="70">70+（不錯以上）</option>
+                <option value="90">90+（只看超值）</option>
+              </select>
+            </div>
           </div>
 
-        </details>
-
-      </div>
-
-    </div>
+        </div>
 
 
-    <div class="price-quick">
+        <!-- 多選區塊（下方獨立3欄） -->
+        <div class="filter-grid" style="margin-top:16px;">
+          <!-- 目的地 -->
+          <div class="field multi">
+            <label>目的地</label>
+            <details class="multi-box dest">
+              <summary class="multi-toggle">
+                <span class="multi-title">✓ 目的地</span>
+                <span class="multi-status" id="destStatus">載入中…</span>
+              </summary>
+              <div class="multi-panel">
+                <div class="multi-head">
+                  <span class="multi-hint">可複選，預設全選</span>
+                  <div class="multi-actions">
+                    <button class="small" id="destAll" type="button">全選</button>
+                    <button class="small" id="destNone" type="button">全部取消</button>
+                  </div>
+                </div>
+                <div id="destinations" class="multi-options"></div>
+              </div>
+            </details>
+          </div>
 
-      <button
-        class="quick"
-        data-price=""
-        type="button"
-      >
-        全部價格
-      </button>
+          <!-- 想要的航空公司 -->
+          <div class="field multi">
+            <label>想要的航空公司</label>
+            <details class="multi-box want">
+              <summary class="multi-toggle">
+                <span class="multi-title">✓ 想要的航空公司</span>
+                <span class="multi-status" id="includeStatus">載入中…</span>
+              </summary>
+              <div class="multi-panel">
+                <div class="multi-head">
+                  <span class="multi-hint">可複選，預設全選</span>
+                  <div class="multi-actions">
+                    <button class="small" id="includeAll" type="button">全選</button>
+                    <button class="small" id="includeNone" type="button">全部取消</button>
+                  </div>
+                </div>
+                <div id="includeAirlines" class="multi-options"></div>
+              </div>
+            </details>
+          </div>
 
-      <button
-        class="quick"
-        data-price="6000"
-        type="button"
-      >
-        ≤ NT$6,000
-      </button>
-
-      <button
-        class="quick"
-        data-price="8000"
-        type="button"
-      >
-        ≤ NT$8,000
-      </button>
-
-      <button
-        class="quick"
-        data-price="10000"
-        type="button"
-      >
-        ≤ NT$10,000
-      </button>
-
-      <button
-        class="quick"
-        data-price="12000"
-        type="button"
-      >
-        ≤ NT$12,000
-      </button>
-
-    </div>
+          <!-- 不要的航空公司 -->
+          <div class="field multi">
+            <label>不要的航空公司</label>
+            <details class="multi-box exclude">
+              <summary class="multi-toggle">
+                <span class="multi-title">✕ 排除航空公司</span>
+                <span class="multi-status" id="excludeStatus">未排除</span>
+              </summary>
+              <div class="multi-panel">
+                <div class="multi-head">
+                  <span class="multi-hint">可複選，預設不選</span>
+                  <div class="multi-actions">
+                    <button class="small" id="excludeAll" type="button">全選</button>
+                    <button class="small" id="excludeNone" type="button">全部取消</button>
+                  </div>
+                </div>
+                <div id="excludeAirlines" class="multi-options"></div>
+              </div>
+            </details>
+          </div>
+        </div>
 
 
-    <div class="action-row">
+        <div class="price-quick">
+          <button class="quick" data-price="" type="button">全部價格</button>
+          <button class="quick" data-price="6000" type="button">≤ NT$6,000</button>
+          <button class="quick" data-price="8000" type="button">≤ NT$8,000</button>
+          <button class="quick" data-price="10000" type="button">≤ NT$10,000</button>
+          <button class="quick" data-price="12000" type="button">≤ NT$12,000</button>
+        </div>
 
-      <button
-        id="applyFilters"
-        class="apply"
-        type="button"
-      >
-        🔎 套用篩選條件
-      </button>
 
-      <button
-        id="resetFilters"
-        class="reset"
-        type="button"
-      >
-        ↺ 恢復預設條件
-      </button>
-
-    </div>
-
+        <div class="action-row">
+          <button id="applyFilters" class="apply" type="button">🔎 套用篩選條件</button>
+          <button id="resetFilters" class="reset" type="button">↺ 恢復預設條件</button>
+        </div>
 
         <div class="summary">
-
-          <span id="resultCount">
-            —
-          </span>
-
-          <span
-            id="activeSummary"
-            class="active"
-          >
-          </span>
-
-          <span id="progress">
-            —
-          </span>
-
+          <span id="resultCount">—</span>
+          <span id="activeSummary" class="active"></span>
+          <span id="progress">—</span>
         </div>
 
-
-        <div
-          id="summaryDatesBox"
-          style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; line-height:1.8;"
-        >
-        </div>
-
-
-        <div
-          id="summaryUpdatedBox"
-          style="margin-top:8px; color:var(--muted); font-size:11px;"
-        >
-        </div>
+        <div id="summaryDatesBox" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; line-height:1.8;"></div>
+        <div id="summaryUpdatedBox" style="margin-top:8px; color:var(--muted); font-size:11px;"></div>
 
       </div>
 
@@ -1000,94 +796,40 @@ footer{
   </section>
 
 
-  <!-- =====================================================
-       結果排序在這裡，不放篩選區
-  ====================================================== -->
-
   <div class="result-header">
-
     <div class="result-title">
-
-      <h2>
-        📊 符合條件的航班
-      </h2>
-
-      <span>
-        排序只重新排列目前結果，不會改變篩選條件
-      </span>
-
+      <h2>📊 符合條件的航班</h2>
+      <span>排序只重新排列目前結果，不會改變篩選條件</span>
     </div>
-
 
     <div class="result-sort">
-
-      <label for="sortBy">
-        結果排序：
-      </label>
-
+      <label for="sortBy">結果排序：</label>
       <select id="sortBy">
-
-        <option value="cheap">
-          相對便宜優先
-        </option>
-
-        <option value="priceAsc">
-          價格低 → 高
-        </option>
-
-        <option value="priceDesc">
-          價格高 → 低
-        </option>
-
-        <option value="discount">
-          低於近期平均最多
-        </option>
-
-        <option value="date">
-          出發日期：近 → 遠
-        </option>
-
-        <option value="stay">
-          停留天數短 → 長
-        </option>
-
-        <option value="dateDesc">
-          出發日期：遠 → 近
-        </option>
-
+        <option value="cheap">相對便宜優先</option>
+        <option value="priceAsc">價格低 → 高</option>
+        <option value="priceDesc">價格高 → 低</option>
+        <option value="discount">低於近期平均最多</option>
+        <option value="date">出發日期：近 → 遠</option>
+        <option value="stay">停留天數短 → 長</option>
+        <option value="dateDesc">出發日期：遠 → 近</option>
       </select>
-
     </div>
-
   </div>
 
 
-  <div
-    id="scoreBands"
-    style="margin:-6px 0 13px; font-size:12px; color:var(--muted); display:flex; gap:16px; flex-wrap:wrap;"
-  >
+  <div id="scoreBands" style="margin:-6px 0 13px; font-size:12px; color:var(--muted); display:flex; gap:16px; flex-wrap:wrap;">
   </div>
 
 
-  <div
-    id="cheapestRankBox"
-    style="margin:0 0 16px; padding:14px 16px; border:1px solid var(--line); border-radius:12px; background:rgba(20,30,51,.6);"
-  >
+  <div id="cheapestRankBox" style="margin:0 0 16px; padding:14px 16px; border:1px solid var(--line); border-radius:12px; background:rgba(20,30,51,.6);">
   </div>
 
 
-  <div
-    id="empty"
-    class="empty"
-  >
+  <div id="empty" class="empty">
     目前條件下沒有符合資料
   </div>
 
-
-  <div
-    id="grid"
-    class="grid"
-  >
+  <div id="grid" class="grid">
   </div>
 
 </div>
@@ -1095,2567 +837,442 @@ footer{
 
 <script>
 
-/* =========================================================
-   AIRPORTS
-========================================================= */
-
 const AIRPORTS={
-
-  TPE:[
-    "台北桃園",
-    "Taoyuan Intl"
-  ],
-
-  NRT:[
-    "東京成田",
-    "Narita"
-  ],
-
-  HND:[
-    "東京羽田",
-    "Haneda"
-  ],
-
-  KIX:[
-    "大阪關西",
-    "Kansai"
-  ],
-
-  FUK:[
-    "福岡",
-    "Fukuoka"
-  ],
-
-  CTS:[
-    "札幌新千歲",
-    "New Chitose"
-  ],
-
-  OKA:[
-    "沖繩那霸",
-    "Naha"
-  ],
-
-  ICN:[
-    "首爾仁川",
-    "Incheon"
-  ],
-
-  PUS:[
-    "釜山金海",
-    "Gimhae"
-  ]
-
+  TPE:["台北桃園","Taoyuan Intl"],
+  NRT:["東京成田","Narita"],
+  HND:["東京羽田","Haneda"],
+  KIX:["大阪關西","Kansai"],
+  FUK:["福岡","Fukuoka"],
+  CTS:["札幌新千歲","New Chitose"],
+  OKA:["沖繩那霸","Naha"],
+  ICN:["首爾仁川","Incheon"],
+  PUS:["釜山金海","Gimhae"]
 };
 
-
-/* =========================================================
-   AIRLINES
-========================================================= */
-
-const UNKNOWN_AIRLINE=
-  "__UNKNOWN__";
-
+const UNKNOWN_AIRLINE="__UNKNOWN__";
 
 const AIRLINES={
-
-  "China Airlines":
-    "中華航空",
-
-  "EVA Air":
-    "長榮航空",
-
-  "EVA Airways":
-    "長榮航空",
-
-  "STARLUX Airlines":
-    "星宇航空",
-
-  "Starlux Airlines":
-    "星宇航空",
-
-  "Tigerair Taiwan":
-    "台灣虎航",
-
-  "Japan Airlines":
-    "日本航空",
-
-  "JAL":
-    "日本航空",
-
-  "All Nippon Airways":
-    "全日空",
-
-  "ANA":
-    "全日空",
-
-  "Peach Aviation":
-    "樂桃航空",
-
-  "Peach":
-    "樂桃航空",
-
-  "Jetstar Japan":
-    "捷星日本航空",
-
-  "Jetstar":
-    "捷星航空",
-
-  "Skymark Airlines":
-    "天馬航空",
-
-  "Solaseed Air":
-    "空之子航空",
-
-  "ZIPAIR":
-    "ZIPAIR Tokyo",
-
-  "ZIPAIR Tokyo":
-    "ZIPAIR Tokyo",
-
-  "Korean Air":
-    "大韓航空",
-
-  "Asiana Airlines":
-    "韓亞航空",
-
-  "Jeju Air":
-    "濟州航空",
-
-  "Jin Air":
-    "真航空",
-
-  "T'way Air":
-    "德威航空",
-
-  "Tway Air":
-    "德威航空",
-
-  "Eastar Jet":
-    "易斯達航空",
-
-  "Air Busan":
-    "釜山航空",
-
-  "Air Seoul":
-    "首爾航空",
-
-  "Aero K":
-    "Aero K航空",
-
-  "Scoot":
-    "酷航",
-
-  "AirAsia":
-    "亞洲航空",
-
-  "AirAsia X":
-    "亞洲航空X",
-
-  "Thai AirAsia":
-    "泰國亞洲航空",
-
-  "Thai AirAsia X":
-    "泰國亞洲航空X",
-
-  "Thai Lion Air":
-    "泰國獅子航空",
-
-  "VietJet Air":
-    "越捷航空",
-
-  "Vietnam Airlines":
-    "越南航空",
-
-  "Cathay Pacific":
-    "國泰航空",
-
-  "HK Express":
-    "香港快運",
-
-  "Hong Kong Express":
-    "香港快運",
-
-  "Greater Bay Airlines":
-    "大灣區航空",
-
-  "Air China":
-    "中國國際航空",
-
-  "China Eastern":
-    "中國東方航空",
-
-  "China Eastern Airlines":
-    "中國東方航空",
-
-  "China Southern":
-    "中國南方航空",
-
-  "China Southern Airlines":
-    "中國南方航空",
-
-  "XiamenAir":
-    "廈門航空",
-
-  "Xiamen Airlines":
-    "廈門航空",
-
-  "Spring Airlines":
-    "春秋航空",
-
-  "Juneyao Airlines":
-    "吉祥航空",
-
-  "Shenzhen Airlines":
-    "深圳航空"
+  "China Airlines":"中華航空",
+  "EVA Air":"長榮航空",
+  "EVA Airways":"長榮航空",
+  "STARLUX Airlines":"星宇航空",
+  "Starlux Airlines":"星宇航空",
+  "Tigerair Taiwan":"台灣虎航",
+  "Japan Airlines":"日本航空",
+  "JAL":"日本航空",
+  "All Nippon Airways":"全日空",
+  "ANA":"全日空",
+  "Peach Aviation":"樂桃航空",
+  "Peach":"樂桃航空",
+  "Jetstar Japan":"捷星日本航空",
+  "Jetstar":"捷星航空",
+  "Skymark Airlines":"天馬航空",
+  "Solaseed Air":"空之子航空",
+  "ZIPAIR":"ZIPAIR Tokyo",
+  "ZIPAIR Tokyo":"ZIPAIR Tokyo",
+  "Korean Air":"大韓航空",
+  "Asiana Airlines":"韓亞航空",
+  "Jeju Air":"濟州航空",
+  "Jin Air":"真航空",
+  "T'way Air":"德威航空",
+  "Tway Air":"德威航空",
+  "Eastar Jet":"易斯達航空",
+  "Air Busan":"釜山航空",
+  "Air Seoul":"首爾航空",
+  "Aero K":"Aero K航空",
+  "Scoot":"酷航",
+  "AirAsia":"亞洲航空",
+  "AirAsia X":"亞洲航空X",
+  "Thai AirAsia":"泰國亞洲航空",
+  "Thai AirAsia X":"泰國亞洲航空X",
+  "Thai Lion Air":"泰國獅子航空",
+  "VietJet Air":"越捷航空",
+  "Vietnam Airlines":"越南航空",
+  "Cathay Pacific":"國泰航空",
+  "HK Express":"香港快運",
+  "Hong Kong Express":"香港快運",
+  "Greater Bay Airlines":"大灣區航空",
+  "Air China":"中國國際航空",
+  "China Eastern":"中國東方航空",
+  "China Eastern Airlines":"中國東方航空",
+  "China Southern":"中國南方航空",
+  "China Southern Airlines":"中國南方航空",
+  "XiamenAir":"廈門航空",
+  "Xiamen Airlines":"廈門航空",
+  "Spring Airlines":"春秋航空",
+  "Juneyao Airlines":"吉祥航空",
+  "Shenzhen Airlines":"深圳航空"
 };
 
-
 let DATA=null;
-
 let CURRENT_RESULTS=[];
-
 let CURRENT_FILTERS=null;
+const $=$=>document.getElementById($);
 
-
-const $=
-  id=>
-    document.getElementById(id);
-
-
-function safe(
-  value,
-  fallback="—"
-){
-
-  return (
-    value===null
-    ||
-    value===undefined
-    ||
-    value===""
-  )
-  ?
-  fallback
-  :
-  value;
+function safe(value,fallback="—"){
+  return(value===null||value===undefined||value==="")?fallback:value;
 }
 
-
-function airportCn(
-  code
-){
-
-  return (
-    AIRPORTS[code]?.[0]
-    ||
-    code
-  );
+function airportCn(code){
+  return AIRPORTS[code]?.[0]||code;
 }
 
-
-function airportEn(
-  code
-){
-
-  return (
-    AIRPORTS[code]?.[1]
-    ||
-    ""
-  );
+function airportEn(code){
+  return AIRPORTS[code]?.[1]||"";
 }
 
-
-function money(
-  value
-){
-
-  return (
-    "NT$"
-    +
-    Number(
-      value||0
-    )
-    .toLocaleString(
-      "zh-TW"
-    )
-  );
+function money(value){
+  return "NT$"+Number(value||0).toLocaleString("zh-TW");
 }
 
-
-/* =========================================================
-   AIRLINE
-========================================================= */
-
-function airlineParts(
-  raw
-){
-
-  if(!raw){
-
-    return [];
-  }
-
-  return String(raw)
-
-    .split(",")
-
-    .map(
-      item=>
-        item.trim()
-    )
-
-    .filter(
-      Boolean
-    );
+function airlineParts(raw){
+  if(!raw)return[];
+  return String(raw).split(",").map(i=>i.trim()).filter(Boolean);
 }
 
-
-function airlineName(
-  raw
-){
-
-  if(
-    raw===
-    UNKNOWN_AIRLINE
-  ){
-
-    return "航空公司資料未提供";
-  }
-
-  const parts=
-    airlineParts(raw);
-
-  if(
-    !parts.length
-  ){
-
-    return "航空公司資料未提供";
-  }
-
-  return parts
-
-    .map(
-      english=>{
-
-        const chinese=
-          AIRLINES[
-            english
-          ];
-
-        if(chinese){
-
-          return (
-            `${chinese} · ${english}`
-          );
-        }
-
-        // 未建立中文對照時
-        // 不亂翻譯，保留來源英文
-        return english;
-      }
-    )
-
-    .join(" / ");
+function airlineName(raw){
+  if(raw===UNKNOWN_AIRLINE)return"航空公司資料未提供";
+  const parts=airlineParts(raw);
+  if(!parts.length)return"航空公司資料未提供";
+  return parts.map(e=>{
+    const c=AIRLINES[e];
+    if(c)return`${c} · ${e}`;
+    return e;
+  }).join(" / ");
 }
 
-
-/* =========================================================
-   CLOCK
-========================================================= */
-
-function clock(
-  raw
-){
-
-  if(!raw){
-
-    return "時間未提供";
-  }
-
-  const text=
-    String(raw).trim();
-
-  const match=
-    text.match(
-      /^(\d{1,2}):(\d{2})\s*(AM|PM)/i
-    );
-
-  if(!match){
-
-    return text;
-  }
-
-  let hour=
-    Number(
-      match[1]
-    );
-
-  const minute=
-    match[2];
-
-  const ampm=
-    match[3]
-    .toUpperCase();
-
-  if(
-    ampm==="PM"
-    &&
-    hour!==12
-  ){
-
-    hour+=12;
-  }
-
-  if(
-    ampm==="AM"
-    &&
-    hour===12
-  ){
-
-    hour=0;
-  }
-
-  return (
-    `${String(hour).padStart(2,"0")}:${minute}`
-  );
+function clock(raw){
+  if(!raw)return"時間未提供";
+  const t=String(raw).trim();
+  const m=t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if(!m)return t;
+  let h=Number(m[1]);
+  const min=m[2];
+  const ampm=m[3].toUpperCase();
+  if(ampm==="PM"&&h!==12)h+=12;
+  if(ampm==="AM"&&h===12)h=0;
+  return`${String(h).padStart(2,"0")}:${min}`;
 }
 
-
-/* =========================================================
-   GOOGLE LINK
-========================================================= */
-
-function googleLink(
-  deal
-){
-
-  const query=
-
-    `Flights from ${deal.origin} `
-
-    +
-
-    `to ${deal.destination} `
-
-    +
-
-    `on ${deal.departure_date} `
-
-    +
-
-    `through ${deal.return_date}`;
-
-  return (
-
-    "https://www.google.com/travel/flights"
-
-    +
-
-    "?hl=zh-TW"
-
-    +
-
-    "&curr=TWD"
-
-    +
-
-    "&q="
-
-    +
-
-    encodeURIComponent(
-      query
-    )
-  );
+function googleLink(deal){
+  const q=`Flights from ${deal.origin} to ${deal.destination} on ${deal.departure_date} through ${deal.return_date}`;
+  return"https://www.google.com/travel/flights?hl=zh-TW&curr=TWD&q="+encodeURIComponent(q);
 }
 
-
-/* =========================================================
-   CHECKBOX HELPERS
-========================================================= */
-
-function selected(
-  id
-){
-
-  return [
-
-    ...document.querySelectorAll(
-      `#${id} input[type=checkbox]:checked`
-    )
-
-  ].map(
-    input=>
-      input.value
-  );
+function selected(id){
+  return[...document.querySelectorAll(`#${id} input[type=checkbox]:checked`)].map(i=>i.value);
 }
 
-
-function setAll(
-  id,
-  checked
-){
-
-  document.querySelectorAll(
-    `#${id} input[type=checkbox]`
-  )
-  .forEach(
-    input=>{
-
-      input.checked=
-        checked;
-    }
-  );
-
+function setAll(id,checked){
+  document.querySelectorAll(`#${id} input[type=checkbox]`).forEach(i=>{i.checked=checked;});
   updateMultiStatus();
 }
 
-
 function updateMultiStatus(){
-
   const groups=[
-    {
-      listId:"destinations",
-      statusId:"destStatus",
-      empty:"未選目的地",
-      allPrefix:"全部",
-      selectedPrefix:"已選"
-    },
-    {
-      listId:"includeAirlines",
-      statusId:"includeStatus",
-      empty:"未選航空公司",
-      allPrefix:"全部",
-      selectedPrefix:"已選"
-    },
-    {
-      listId:"excludeAirlines",
-      statusId:"excludeStatus",
-      empty:"未排除",
-      allPrefix:"全部排除",
-      selectedPrefix:"已排除"
-    }
+    {listId:"destinations",statusId:"destStatus",empty:"未選目的地",allPrefix:"全部",selectedPrefix:"已選"},
+    {listId:"includeAirlines",statusId:"includeStatus",empty:"未選航空公司",allPrefix:"全部",selectedPrefix:"已選"},
+    {listId:"excludeAirlines",statusId:"excludeStatus",empty:"未排除",allPrefix:"全部排除",selectedPrefix:"已排除"}
   ];
-
-  groups.forEach(
-    group=>{
-
-      const list=$(group.listId);
-      const status=$(group.statusId);
-
-      if(!list || !status){
-        return;
-      }
-
-      const total=
-        list.querySelectorAll(
-          'input[type="checkbox"]'
-        ).length;
-
-      const count=
-        list.querySelectorAll(
-          'input[type="checkbox"]:checked'
-        ).length;
-
-      if(!count){
-        status.textContent=group.empty;
-        return;
-      }
-
-      if(count===total && total){
-        status.textContent=
-          `${group.allPrefix} ${total} 個`;
-        return;
-      }
-
-      status.textContent=
-        `${group.selectedPrefix} ${count} / ${total}`;
-    }
-  );
+  groups.forEach(g=>{
+    const l=$(g.listId),s=$(g.statusId);
+    if(!l||!s)return;
+    const t=l.querySelectorAll('input[type="checkbox"]').length;
+    const c=l.querySelectorAll('input[type="checkbox"]:checked').length;
+    if(!c){s.textContent=g.empty;return;}
+    if(c===t&&t){s.textContent=`${g.allPrefix} ${t} 個`;return;}
+    s.textContent=`${g.selectedPrefix} ${c} / ${t}`;
+  });
 }
 
-
-function escapeHtml(
-  value
-){
-
-  return String(value)
-    .replace(
-      /[&<>'"]/g,
-      char=>(
-        {
-          "&":"&amp;",
-          "<":"&lt;",
-          ">":"&gt;",
-          "'":"&#39;",
-          '"':"&quot;"
-        }[char]
-        ||
-        char
-      )
-    );
+function escapeHtml(v){
+  return String(v).replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]||c));
 }
 
-
-function checkbox(
-  value,
-  label,
-  checked=true
-){
-
-  const element=
-    document.createElement(
-      "label"
-    );
-
-  element.className=
-    "multi-item";
-
-  element.innerHTML=`
-
-    <input
-      type="checkbox"
-      value="${escapeHtml(value)}"
-      ${checked ? "checked" : ""}
-    >
-
-    <span>
-      ${escapeHtml(label)}
-    </span>
-  `;
-
-  return element;
+function checkbox(val,lbl,chk=true){
+  const el=document.createElement("label");
+  el.className="multi-item";
+  el.innerHTML=`<input type="checkbox" value="${escapeHtml(val)}" ${chk?"checked":""}><span>${escapeHtml(lbl)}</span>`;
+  return el;
 }
 
+function optionsForDeal(deal,filters){
+  let opts=Array.isArray(deal.flight_options)?[...deal.flight_options]:[];
+  if(!opts.length)opts=[{airline:UNKNOWN_AIRLINE,departure:null,arrival:null,duration:null,stops:null}];
+  
+  if(filters.includeAirlines.length){
+    opts=opts.filter(o=>{
+      const n=airlineParts(o.airline);
+      return n.some(a=>filters.includeAirlines.includes(a));
+    });
+  }else return[];
 
-/* =========================================================
-   FILTER AIRLINE OPTIONS
-========================================================= */
-
-function optionsForDeal(
-  deal,
-  filters
-){
-
-  let options=
-
-    Array.isArray(
-      deal.flight_options
-    )
-
-    ?
-
-    [...deal.flight_options]
-
-    :
-
-    [];
-
-  /*
-    如果 fast-flights 有價格，
-    但沒解析航空公司，
-    仍然讓使用者看到這張票。
-  */
-
-  if(
-    !options.length
-  ){
-
-    options=[
-      {
-        airline:
-          UNKNOWN_AIRLINE,
-
-        departure:
-          null,
-
-        arrival:
-          null,
-
-        duration:
-          null,
-
-        stops:
-          null
-      }
-    ];
+  if(filters.excludeAirlines.length){
+    opts=opts.filter(o=>{
+      const n=airlineParts(o.airline);
+      return !n.some(a=>filters.excludeAirlines.includes(a));
+    });
   }
-
-
-  /*
-    想要航空公司
-  */
-
-  if(
-    filters
-      .includeAirlines
-      .length
-  ){
-
-    options=
-      options.filter(
-        option=>{
-
-          const names=
-            airlineParts(
-              option.airline
-            );
-
-          return names.some(
-            airline=>
-              filters
-                .includeAirlines
-                .includes(
-                  airline
-                )
-          );
-        }
-      );
-  }
-
-  else{
-
-    return [];
-  }
-
-
-  /*
-    排除航空公司
-  */
-
-  if(
-    filters
-      .excludeAirlines
-      .length
-  ){
-
-    options=
-      options.filter(
-        option=>{
-
-          const names=
-            airlineParts(
-              option.airline
-            );
-
-          return !names.some(
-            airline=>
-              filters
-                .excludeAirlines
-                .includes(
-                  airline
-                )
-          );
-        }
-      );
-  }
-
-  return options;
+  return opts;
 }
 
-
-/* =========================================================
-   OPTION HTML
-========================================================= */
-
-function optionHtml(
-  option
-){
-
-  return `
-
+function optionHtml(o){
+  return`
     <div class="option">
-
-      <div class="option-airline">
-
-        ${escapeHtml(
-          airlineName(
-            option.airline
-          )
-        )}
-
-      </div>
-
+      <div class="option-airline">${escapeHtml(airlineName(o.airline))}</div>
       <div class="time-row">
-
-        <div>
-
-          <span class="time-label">
-            起飛
-          </span>
-
-          <span class="time">
-
-            ${escapeHtml(
-              clock(
-                option.departure
-              )
-            )}
-
-          </span>
-
-        </div>
-
-        <div class="time-arrow">
-          →
-        </div>
-
-        <div>
-
-          <span class="time-label">
-            抵達
-          </span>
-
-          <span class="time">
-
-            ${escapeHtml(
-              clock(
-                option.arrival
-              )
-            )}
-
-          </span>
-
-        </div>
-
+        <div><span class="time-label">起飛</span><span class="time">${escapeHtml(clock(o.departure))}</span></div>
+        <div class="time-arrow">→</div>
+        <div><span class="time-label">抵達</span><span class="time">${escapeHtml(clock(o.arrival))}</span></div>
       </div>
-
-      ${
-        option.duration
-
-        ?
-
-        `
-        <div class="meta">
-          飛行時間
-          ${escapeHtml(option.duration)}
-          ${option.stops===0 ? " · 直飛" : ""}
-        </div>
-        `
-
-        :
-
-        ""
-      }
-
-    </div>
-  `;
+      ${o.duration?`<div class="meta">飛行時間 ${escapeHtml(o.duration)} ${o.stops===0?" · 直飛":""}</div>`:""}
+    </div>`;
 }
 
-
-/* =========================================================
-   CARD
-========================================================= */
-
-function cardHtml(
-  deal,
-  filters
-){
-
-  const options=
-    optionsForDeal(
-      deal,
-      filters
-    );
-
-  return `
-
+function cardHtml(deal,filters){
+  const opts=optionsForDeal(deal,filters);
+  return`
     <article class="card">
-
       <div>
-
-        <div class="route">
-
-          ${airportCn(deal.origin)}
-
-          <span class="arrow">
-            →
-          </span>
-
-          ${airportCn(deal.destination)}
-
-        </div>
-
-        <div class="airport-en">
-
-          ${airportEn(deal.origin)}
-
-          →
-
-          ${airportEn(deal.destination)}
-
-        </div>
-
+        <div class="route">${airportCn(deal.origin)} <span class="arrow">→</span> ${airportCn(deal.destination)}</div>
+        <div class="airport-en">${airportEn(deal.origin)} → ${airportEn(deal.destination)}</div>
       </div>
-
-
-      <div class="price">
-
-        ${money(deal.price)}
-
-        <span class="mini">
-          1 人來回
-        </span>
-
-      </div>
-
-
+      <div class="price">${money(deal.price)} <span class="mini">1 人來回</span></div>
       <div class="badges">
-
-        <span class="badge">
-
-          🗓 停留
-          ${safe(deal.stay_days)}
-          天
-
-        </span>
-
-
-        <span class="badge pink">
-
-          📉 較近期平均
-
-          ${
-            Number(
-              deal.diff_percent||0
-            ) >= 0
-
-            ?
-
-            "低"
-
-            :
-
-            "高"
-          }
-
-          ${
-            Math.abs(
-              Number(
-                deal.diff_percent||0
-              )
-            ).toFixed(1)
-          }%
-
-        </span>
-
-
-        <span class="badge gold">
-
-          🔥 Score
-          ${safe(deal.cheap_score)}
-
-        </span>
-
-
-        ${
-          options.length>1
-
-          ?
-
-          `
-          <span class="badge blue">
-            ✈ ${options.length} 個同價選擇
-          </span>
-          `
-
-          :
-
-          ""
-        }
-
-        ${
-          deal.score_reliable === false
-
-          ?
-
-          `
-          <span class="badge pink">
-            ⚠ 樣本較少，Score 僅供參考
-          </span>
-          `
-
-          :
-
-          ""
-        }
-
+        <span class="badge">🗓 停留 ${safe(deal.stay_days)} 天</span>
+        <span class="badge pink">📉 較近期平均 ${Number(deal.diff_percent||0)>=0?"低":"高"} ${Math.abs(Number(deal.diff_percent||0)).toFixed(1)}%</span>
+        <span class="badge gold">🔥 Score ${safe(deal.cheap_score)}</span>
+        ${opts.length>1?`<span class="badge blue">✈ ${opts.length} 個同價選擇</span>`:""}
+        ${deal.score_reliable===false?`<span class="badge pink">⚠ 樣本較少，Score 僅供參考</span>`:""}
       </div>
-
-
-      <div class="dates">
-
-        去程：
-        ${safe(deal.departure_date)}
-
-        ·
-
-        回程：
-        ${safe(deal.return_date)}
-
-      </div>
-
-
+      <div class="dates">去程：${safe(deal.departure_date)} · 回程：${safe(deal.return_date)}</div>
       <div class="options">
-
-        <div class="options-title">
-          ✈ 可選航班
-        </div>
-
-        ${
-          options
-            .map(optionHtml)
-            .join("")
-        }
-
+        <div class="options-title">✈ 可選航班</div>
+        ${opts.map(optionHtml).join("")}
       </div>
-
-
       <div class="footer-row">
-
-        <span class="meta">
-
-          近期平均
-          ${money(
-            deal.recent_average_price
-          )}
-
-          ·
-
-          Score樣本
-          ${safe(
-            deal.score_sample_size
-          )}
-
-        </span>
-
-
-        <a
-          class="link"
-          href="${googleLink(deal)}"
-          target="_blank"
-          rel="noopener"
-        >
-
-          查看 Google Flights ↗
-
-        </a>
-
+        <span class="meta">近期平均 ${money(deal.recent_average_price)} · Score樣本 ${safe(deal.score_sample_size)}</span>
+        <a class="link" href="${googleLink(deal)}" target="_blank" rel="noopener">查看 Google Flights ↗</a>
       </div>
-
-    </article>
-  `;
+    </article>`;
 }
 
+function fillControls(data){
+  const dests=data.destinations?.length?data.destinations:[...new Set((data.deals||[]).map(d=>d.destination))];
+  dests.filter(Boolean).forEach(c=>$("destinations").appendChild(checkbox(c,`${airportCn(c)} (${c})`,true)));
 
-/* =========================================================
-   FILL CONTROLS
-========================================================= */
+  const airSet=new Set();
+  (data.deals||[]).forEach(d=>{
+    const opts=Array.isArray(d.flight_options)?d.flight_options:[];
+    if(!opts.length)airSet.add(UNKNOWN_AIRLINE);
+    opts.forEach(o=>airlineParts(o.airline).forEach(a=>airSet.add(a)));
+  });
+  
+  const airList=[...airSet].sort((a,b)=>{
+    if(a===UNKNOWN_AIRLINE)return 1;
+    if(b===UNKNOWN_AIRLINE)return -1;
+    return a.localeCompare(b,"en",{sensitivity:"base"});
+  });
+  
+  airList.forEach(a=>{
+    $("includeAirlines").appendChild(checkbox(a,airlineName(a),true));
+    $("excludeAirlines").appendChild(checkbox(a,airlineName(a),false));
+  });
 
-function fillControls(
-  data
-){
-
-  /*
-    DESTINATIONS
-  */
-
-  const destinationCodes=
-
-    data.destinations?.length
-
-    ?
-
-    data.destinations
-
-    :
-
-    [
-      ...new Set(
-        (data.deals||[])
-          .map(
-            deal=>
-              deal.destination
-          )
-      )
-    ];
-
-  destinationCodes
-    .filter(Boolean)
-    .forEach(
-      code=>{
-
-        $("destinations")
-          .appendChild(
-
-            checkbox(
-              code,
-              `${airportCn(code)} (${code})`,
-              true
-            )
-          );
-      }
-    );
-
-
-  /*
-    AIRLINES
-  */
-
-  const airlineSet=
-    new Set();
-
-  (data.deals||[])
-    .forEach(
-      deal=>{
-
-        const options=
-
-          Array.isArray(
-            deal.flight_options
-          )
-
-          ?
-
-          deal.flight_options
-
-          :
-
-          [];
-
-        if(
-          !options.length
-        ){
-
-          airlineSet.add(
-            UNKNOWN_AIRLINE
-          );
-        }
-
-        options.forEach(
-          option=>{
-
-            airlineParts(
-              option.airline
-            )
-            .forEach(
-              airline=>{
-
-                airlineSet.add(
-                  airline
-                );
-              }
-            );
-          }
-        );
-      }
-    );
-
-
-  const airlineList=
-
-    [...airlineSet]
-
-      .sort(
-        (a,b)=>{
-
-          // 「航空公司資料未提供」永遠排最後，
-          // 其餘依英文名稱開頭字母排序（A→Z）
-          if(
-            a === UNKNOWN_AIRLINE
-          ){
-
-            return 1;
-          }
-
-          if(
-            b === UNKNOWN_AIRLINE
-          ){
-
-            return -1;
-          }
-
-          return a.localeCompare(
-            b,
-            "en",
-            {
-              sensitivity: "base"
-            }
-          );
-        }
-      );
-
-
-  airlineList.forEach(
-    airline=>{
-
-      $("includeAirlines")
-        .appendChild(
-
-          checkbox(
-            airline,
-            airlineName(airline),
-            true
-          )
-        );
-
-      $("excludeAirlines")
-        .appendChild(
-
-          checkbox(
-            airline,
-            airlineName(airline),
-            false
-          )
-        );
-    }
-  );
-
-
-  /*
-    STAY
-  */
-
-  const minimum=
-    Number(
-      data.stay_min_days
-      ||
-      5
-    );
-
-  const maximum=
-    Number(
-      data.stay_max_days
-      ||
-      15
-    );
-
-  for(
-    let day=minimum;
-    day<=maximum;
-    day++
-  ){
-
-    const minOption=
-      document.createElement(
-        "option"
-      );
-
-    minOption.value=
-      day;
-
-    minOption.textContent=
-      `${day} 天`;
-
-    $("stayMin")
-      .appendChild(
-        minOption
-      );
-
-
-    const maxOption=
-      document.createElement(
-        "option"
-      );
-
-    maxOption.value=
-      day;
-
-    maxOption.textContent=
-      `${day} 天`;
-
-    $("stayMax")
-      .appendChild(
-        maxOption
-      );
+  const min=Number(data.stay_min_days||5),max=Number(data.stay_max_days||15);
+  for(let d=min;d<=max;d++){
+    const mo=document.createElement("option");mo.value=d;mo.textContent=`${d} 天`;$("stayMin").appendChild(mo);
+    const mx=document.createElement("option");mx.value=d;mx.textContent=`${d} 天`;$("stayMax").appendChild(mx);
   }
-
-  $("stayMin").value=
-    minimum;
-
-  $("stayMax").value=
-    maximum;
-
-
-  $("dateFrom").value=
-    data.search_start_date
-    ||
-    "";
-
-  $("dateTo").value=
-    data.search_end_date
-    ||
-    "";
+  $("stayMin").value=min;
+  $("stayMax").value=max;
+  $("dateFrom").value=data.search_start_date||"";
+  $("dateTo").value=data.search_end_date||"";
 }
-
-
-/* =========================================================
-   FILTER VALUES
-========================================================= */
 
 function getFilters(){
-
-  return {
-
-    destinations:
-      selected(
-        "destinations"
-      ),
-
-    stayMin:
-      Number(
-        $("stayMin").value
-        ||
-        0
-      ),
-
-    stayMax:
-      Number(
-        $("stayMax").value
-        ||
-        999
-      ),
-
-    maxPrice:
-      Number(
-        $("maxPrice").value
-        ||
-        0
-      ),
-
-    scoreMin:
-      Number(
-        $("scoreMin").value
-        ||
-        0
-      ),
-
-    dateFrom:
-      $("dateFrom").value,
-
-    dateTo:
-      $("dateTo").value,
-
-    includeAirlines:
-      selected(
-        "includeAirlines"
-      ),
-
-    excludeAirlines:
-      selected(
-        "excludeAirlines"
-      )
+  return{
+    destinations:selected("destinations"),
+    stayMin:Number($("stayMin").value||0),
+    stayMax:Number($("stayMax").value||999),
+    maxPrice:Number($("maxPrice").value||0),
+    scoreMin:Number($("scoreMin").value||0),
+    dateFrom:$("dateFrom").value,
+    dateTo:$("dateTo").value,
+    includeAirlines:selected("includeAirlines"),
+    excludeAirlines:selected("excludeAirlines")
   };
 }
 
-
-/* =========================================================
-   APPLY FILTERS
-========================================================= */
-
-function renderScoreBands(
-  counts,
-  scoreMinValue
-){
-
-  const box=
-    $("scoreBands");
-
-  if(!box){
-
-    return;
-  }
-
-  const hiddenNote=
-
-    scoreMinValue > 0
-
-    ?
-
-    "（目前已隱藏，可調整上方 Cheap Score 篩選查看）"
-
-    :
-
-    "（目前顯示中）";
-
-  box.innerHTML=`
-
-    <span>🔥 超值 ${counts.hot} 組（Score 90+）</span>
-    <span>✈️ 不錯 ${counts.good} 組（Score 70～89）</span>
-    <span>📌 一般 ${counts.normal} 組（Score 40～69）</span>
-    <span>💰 偏貴 ${counts.expensive} 組（Score &lt; 40）${hiddenNote}</span>
-  `;
+function renderScoreBands(c,sMin){
+  const b=$("scoreBands");
+  if(!b)return;
+  const hn=sMin>0?"（目前已隱藏，可調整上方 Cheap Score 篩選查看）":"（目前顯示中）";
+  b.innerHTML=`
+    <span>🔥 超值 ${c.hot} 組（Score 90+）</span>
+    <span>✈️ 不錯 ${c.good} 組（Score 70～89）</span>
+    <span>📌 一般 ${c.normal} 組（Score 40～69）</span>
+    <span>💰 偏貴 ${c.expensive} 組（Score &lt; 40）${hn}</span>`;
 }
 
+function renderCheapestRank(rows){
+  const box=$("cheapestRankBox");
+  if(!box)return;
+  if(!rows.length){box.style.display="none";return;}
 
-function renderCheapestRank(
-  rows
-){
+  box.style.display="block";
+  const bestByKey=new Map();
+  rows.forEach(deal=>{
+    const k=deal.departure_date+"|"+deal.destination;
+    const ex=bestByKey.get(k);
+    if(!ex||Number(deal.price)<Number(ex.price))bestByKey.set(k,deal);
+  });
 
-  const box=
-    $("cheapestRankBox");
-
-  if(!box){
-
-    return;
-  }
-
-  if(!rows.length){
-
-    box.innerHTML=
-      "";
-
-    return;
-  }
-
-  // 同一天、同一目的地
-  // 可能因為不同停留天數出現重複，
-  // 只留下該天該目的地最便宜的那一筆
-  const bestByKey=
-    new Map();
-
-  rows.forEach(
-    deal=>{
-
-      const key=
-
-        deal.departure_date
-        +
-        "|"
-        +
-        deal.destination;
-
-      const existing=
-        bestByKey.get(key);
-
-      if(
-        !existing
-        ||
-        Number(deal.price)
-        <
-        Number(existing.price)
-      ){
-
-        bestByKey.set(
-          key,
-          deal
-        );
-      }
-    }
-  );
-
-  const ranked=
-
-    [...bestByKey.values()]
-
-      .sort(
-        (a,b)=>
-
-          Number(a.price)
-          -
-          Number(b.price)
-      )
-
-      .slice(0, 8);
-
-  const rowsHtml=
-
-    ranked
-
-      .map(
-        deal=>{
-
-          const d=
-            new Date(
-              deal.departure_date
-            );
-
-          const md=
-
-            `${String(d.getMonth()+1).padStart(2,"0")}/`
-
-            +
-
-            `${String(d.getDate()).padStart(2,"0")}`;
-
-          return `
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid var(--line); font-size:13px;">
-              <span>${md}　${airportCn(deal.destination)}</span>
-              <span style="color:var(--gold); font-weight:900;">${money(deal.price)}</span>
-            </div>
-          `;
-        }
-      )
-
-      .join("");
+  const ranked=[...bestByKey.values()].sort((a,b)=>Number(a.price)-Number(b.price)).slice(0,8);
+  const days=["週日","週一","週二","週三","週四","週五","週六"];
+  
+  const optionsHtml=ranked.map(deal=>{
+    const d=new Date(deal.departure_date);
+    const md=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")} (${days[d.getDay()]})`;
+    return`<option value="${deal.departure_date}">${md} ｜ ${airportCn(deal.destination)} ｜ ${money(deal.price)}</option>`;
+  }).join("");
 
   box.innerHTML=`
-
-    <div style="font-size:13px; font-weight:900; color:var(--blue); margin-bottom:8px;">
-      📅 目前條件下最便宜出發日期 Top ${ranked.length}
+    <div style="font-size:13px; font-weight:900; color:var(--blue); margin-bottom:10px;">
+      📅 最便宜出發日期 Top ${ranked.length}
     </div>
-
-    ${rowsHtml}
+    <select style="width:100%; height:46px; border:1px solid var(--line); border-radius:8px; background:var(--input); color:var(--gold); padding:0 12px; font-size:15px; font-weight:bold; cursor:pointer; outline:none; appearance:auto;">
+      <option value="" disabled selected>▾ 點開下拉選單：查看最便宜的日期與價格</option>
+      ${optionsHtml}
+    </select>
   `;
 }
-
 
 function applyFilters(){
+  const f=getFilters();
+  let r=[...(DATA.deals||[])];
 
-  const filters=
-    getFilters();
+  r=r.filter(deal=>{
+    if(!f.destinations.includes(deal.destination))return false;
+    if(Number(deal.stay_days)<f.stayMin||Number(deal.stay_days)>f.stayMax)return false;
+    if(f.maxPrice&&Number(deal.price)>f.maxPrice)return false;
+    if(f.dateFrom&&deal.departure_date<f.dateFrom)return false;
+    if(f.dateTo&&deal.departure_date>f.dateTo)return false;
+    if(!optionsForDeal(deal,f).length)return false;
+    return true;
+  });
 
-  // 先套用「非 Score」的所有篩選條件，
-  // 這樣分層統計（超值/不錯/一般/偏貴）
-  // 才會反映使用者實際選的目的地、天數、日期、航空公司
-  let rows=[
-    ...(DATA.deals||[])
-  ];
+  const bc={hot:0,good:0,normal:0,expensive:0};
+  r.forEach(deal=>{
+    const s=Number(deal.cheap_score||0);
+    if(s>=90)bc.hot++;else if(s>=70)bc.good++;else if(s>=40)bc.normal++;else bc.expensive++;
+  });
+  renderScoreBands(bc,f.scoreMin);
 
+  if(f.scoreMin)r=r.filter(deal=>Number(deal.cheap_score||0)>=f.scoreMin);
 
-  rows=
-    rows.filter(
-      deal=>{
-
-        /*
-          DESTINATION
-        */
-
-        if(
-          !filters
-            .destinations
-            .includes(
-              deal.destination
-            )
-        ){
-
-          return false;
-        }
-
-
-        /*
-          STAY
-        */
-
-        if(
-          Number(
-            deal.stay_days
-          )
-          <
-          filters.stayMin
-        ){
-
-          return false;
-        }
-
-        if(
-          Number(
-            deal.stay_days
-          )
-          >
-          filters.stayMax
-        ){
-
-          return false;
-        }
-
-
-        /*
-          PRICE
-        */
-
-        if(
-          filters.maxPrice
-          &&
-          Number(
-            deal.price
-          )
-          >
-          filters.maxPrice
-        ){
-
-          return false;
-        }
-
-
-        /*
-          DATE
-        */
-
-        if(
-          filters.dateFrom
-          &&
-          deal.departure_date
-          <
-          filters.dateFrom
-        ){
-
-          return false;
-        }
-
-        if(
-          filters.dateTo
-          &&
-          deal.departure_date
-          >
-          filters.dateTo
-        ){
-
-          return false;
-        }
-
-
-        /*
-          AIRLINE
-        */
-
-        if(
-          !optionsForDeal(
-            deal,
-            filters
-          ).length
-        ){
-
-          return false;
-        }
-
-        return true;
-      }
-    );
-
-
-  /*
-    分層統計：
-    🔥 超值 Score >= 90
-    ✈️ 不錯 70 <= Score < 90
-    📌 一般 40 <= Score < 70
-    💰 偏貴 Score < 40
-  */
-
-  const bandCounts={
-    hot: 0,
-    good: 0,
-    normal: 0,
-    expensive: 0
-  };
-
-  rows.forEach(
-    deal=>{
-
-      const score=
-        Number(
-          deal.cheap_score
-          ||
-          0
-        );
-
-      if(score >= 90){
-
-        bandCounts.hot++;
-      }
-
-      else if(score >= 70){
-
-        bandCounts.good++;
-      }
-
-      else if(score >= 40){
-
-        bandCounts.normal++;
-      }
-
-      else{
-
-        bandCounts.expensive++;
-      }
-    }
-  );
-
-  renderScoreBands(
-    bandCounts,
-    filters.scoreMin
-  );
-
-
-  /*
-    最後才套用 Score 篩選，
-    預設 40+，把「偏貴」的組合收起來
-  */
-
-  if(filters.scoreMin){
-
-    rows=
-      rows.filter(
-        deal=>
-          Number(
-            deal.cheap_score
-            ||
-            0
-          )
-          >=
-          filters.scoreMin
-      );
-  }
-
-
-  CURRENT_RESULTS=
-    rows;
-
-  CURRENT_FILTERS=
-    filters;
-
-  renderCheapestRank(
-    rows
-  );
-
+  CURRENT_RESULTS=r;
+  CURRENT_FILTERS=f;
+  renderCheapestRank(r);
   renderCurrent();
 }
 
-
-/* =========================================================
-   SORT
-========================================================= */
-
-function sortRows(
-  rows
-){
-
-  const type=
-    $("sortBy").value;
-
-  return [...rows]
-    .sort(
-      (a,b)=>{
-
-        if(
-          type===
-          "priceAsc"
-        ){
-
-          return (
-            Number(a.price)
-            -
-            Number(b.price)
-          );
-        }
-
-
-        if(
-          type===
-          "priceDesc"
-        ){
-
-          return (
-            Number(b.price)
-            -
-            Number(a.price)
-          );
-        }
-
-
-        if(
-          type===
-          "discount"
-        ){
-
-          return (
-            Number(
-              b.diff_percent||0
-            )
-            -
-            Number(
-              a.diff_percent||0
-            )
-          );
-        }
-
-
-        if(
-          type===
-          "date"
-        ){
-
-          return String(
-            a.departure_date
-          )
-          .localeCompare(
-            String(
-              b.departure_date
-            )
-          );
-        }
-
-
-        if(
-          type===
-          "dateDesc"
-        ){
-
-          return String(
-            b.departure_date
-          )
-          .localeCompare(
-            String(
-              a.departure_date
-            )
-          );
-        }
-
-
-        if(
-          type===
-          "stay"
-        ){
-
-          return (
-            Number(
-              a.stay_days
-            )
-            -
-            Number(
-              b.stay_days
-            )
-          );
-        }
-
-
-        /*
-          相對便宜優先：
-          Score 高
-          ↓
-          低於平均比例高
-          ↓
-          價格低
-        */
-
-        return (
-
-          Number(
-            b.cheap_score||0
-          )
-
-          -
-
-          Number(
-            a.cheap_score||0
-          )
-
-          ||
-
-          Number(
-            b.diff_percent||0
-          )
-
-          -
-
-          Number(
-            a.diff_percent||0
-          )
-
-          ||
-
-          Number(a.price)
-          -
-          Number(b.price)
-        );
-      }
-    );
+function sortRows(rows){
+  const t=$("sortBy").value;
+  return[...rows].sort((a,b)=>{
+    if(t==="priceAsc")return Number(a.price)-Number(b.price);
+    if(t==="priceDesc")return Number(b.price)-Number(a.price);
+    if(t==="discount")return Number(b.diff_percent||0)-Number(a.diff_percent||0);
+    if(t==="date")return String(a.departure_date).localeCompare(String(b.departure_date));
+    if(t==="dateDesc")return String(b.departure_date).localeCompare(String(a.departure_date));
+    if(t==="stay")return Number(a.stay_days)-Number(b.stay_days);
+    return(Number(b.cheap_score||0)-Number(a.cheap_score||0))||(Number(b.diff_percent||0)-Number(a.diff_percent||0))||(Number(a.price)-Number(b.price));
+  });
 }
 
-
-/* =========================================================
-   SUMMARY
-========================================================= */
-
-function filterSummary(
-  filters
-){
-
-  const totalDestinations=
-
-    document.querySelectorAll(
-      "#destinations input"
-    ).length;
-
-
-  const totalAirlines=
-
-    document.querySelectorAll(
-      "#includeAirlines input"
-    ).length;
-
-
-  const parts=[];
-
-
-  if(
-    filters
-      .destinations
-      .length
-    ===
-    totalDestinations
-  ){
-
-    parts.push(
-      "目的地：全部"
-    );
-  }
-
-  else{
-
-    parts.push(
-      `目的地 ${filters.destinations.length} 個`
-    );
-  }
-
-
-  parts.push(
-    `停留 ${filters.stayMin}～${filters.stayMax} 天`
-  );
-
-
-  if(
-    filters.maxPrice
-  ){
-
-    parts.push(
-      `≤ ${money(filters.maxPrice)}`
-    );
-  }
-
-
-  if(
-    filters.scoreMin
-  ){
-
-    parts.push(
-      `Score ${filters.scoreMin}+`
-    );
-  }
-
-
-  if(
-    filters
-      .includeAirlines
-      .length
-    ===
-    totalAirlines
-  ){
-
-    parts.push(
-      "航空公司：全部"
-    );
-  }
-
-  else{
-
-    parts.push(
-      `想要 ${filters.includeAirlines.length} 家航空公司`
-    );
-  }
-
-
-  if(
-    filters
-      .excludeAirlines
-      .length
-  ){
-
-    parts.push(
-      `排除 ${filters.excludeAirlines.length} 家`
-    );
-  }
-
-
-  return parts.join(
-    " · "
-  );
+function filterSummary(f){
+  const tD=document.querySelectorAll("#destinations input").length;
+  const tA=document.querySelectorAll("#includeAirlines input").length;
+  const p=[];
+  if(f.destinations.length===tD)p.push("目的地：全部");else p.push(`目的地 ${f.destinations.length} 個`);
+  p.push(`停留 ${f.stayMin}～${f.stayMax} 天`);
+  if(f.maxPrice)p.push(`≤ ${money(f.maxPrice)}`);
+  if(f.scoreMin)p.push(`Score ${f.scoreMin}+`);
+  if(f.includeAirlines.length===tA)p.push("航空公司：全部");else p.push(`想要 ${f.includeAirlines.length} 家航空公司`);
+  if(f.excludeAirlines.length)p.push(`排除 ${f.excludeAirlines.length} 家`);
+  return p.join(" · ");
 }
-
-
-/* =========================================================
-   RENDER
-========================================================= */
 
 function renderCurrent(){
+  const rows=sortRows(CURRENT_RESULTS);
+  $("resultCount").textContent=`找到 ${rows.length} 筆符合條件的優惠`;
+  $("activeSummary").textContent=filterSummary(CURRENT_FILTERS);
 
-  const rows=
-    sortRows(
-      CURRENT_RESULTS
-    );
+  const u=[...new Set(rows.map(r=>r.departure_date))].filter(Boolean).sort();
+  if(u.length>0)$("summaryDatesBox").innerHTML=`<div>目前篩選有機票出發日期：</div><div style="color:var(--text); margin:6px 0; line-height:1.8;">${u.join("、")}</div><div>· 共 ${u.length} 個日期</div>`;
+  else $("summaryDatesBox").innerHTML="";
 
-  $("resultCount")
-    .textContent=
-
-      `找到 ${rows.length} 筆符合條件的優惠`;
-
-
-  $("activeSummary")
-    .textContent=
-
-      filterSummary(
-        CURRENT_FILTERS
-      );
-
-
-  /* 新增：動態更新「目前篩選有機票出發日期」 */
-  const uniqueDates=
-    [
-      ...new Set(
-        rows.map(
-          r=>
-            r.departure_date
-        )
-      )
-    ]
-    .filter(Boolean)
-    .sort();
-
-  if(
-    uniqueDates.length > 0
-  ){
-
-    $("summaryDatesBox")
-      .innerHTML=`
-        <div>目前篩選有機票出發日期：</div>
-        <div style="color: var(--text); margin: 6px 0; line-height: 1.8;">
-          ${uniqueDates.join("、")}
-        </div>
-        <div>· 共 ${uniqueDates.length} 個日期</div>
-      `;
-  }
-
-  else{
-
-    $("summaryDatesBox")
-      .innerHTML=
-        "";
-  }
-
-
-  if(
-    !rows.length
-  ){
-
-    $("grid")
-      .innerHTML=
-        "";
-
-    $("empty")
-      .style
-      .display=
-        "block";
-
-    return;
-  }
-
-
-  $("empty")
-    .style
-    .display=
-      "none";
-
-
-  $("grid")
-    .innerHTML=
-
-      rows
-        .map(
-          deal=>
-
-            cardHtml(
-              deal,
-              CURRENT_FILTERS
-            )
-        )
-        .join("");
+  if(!rows.length){$("grid").innerHTML="";$("empty").style.display="block";return;}
+  $("empty").style.display="none";
+  $("grid").innerHTML=rows.map(deal=>cardHtml(deal,CURRENT_FILTERS)).join("");
 }
-
-
-/* =========================================================
-   AIRLINE MUTUAL EXCLUSION
-========================================================= */
 
 function bindMutualExclusion(){
-
-  /*
-    在「想要」勾某公司：
-    自動取消「不要」同公司
-  */
-
-  $("includeAirlines")
-    .addEventListener(
-      "change",
-      event=>{
-
-        if(
-          !event.target.matches(
-            "input[type=checkbox]"
-          )
-        ){
-
-          return;
-        }
-
-        if(
-          !event.target.checked
-        ){
-
-          return;
-        }
-
-
-        const other=
-
-          [
-            ...document.querySelectorAll(
-              "#excludeAirlines input"
-            )
-          ]
-
-          .find(
-            input=>
-
-              input.value
-              ===
-              event.target.value
-          );
-
-
-        if(other){
-
-          other.checked=
-            false;
-        }
-      }
-    );
-
-
-  /*
-    在「不要」勾某公司：
-    自動取消「想要」同公司
-  */
-
-  $("excludeAirlines")
-    .addEventListener(
-      "change",
-      event=>{
-
-        if(
-          !event.target.matches(
-            "input[type=checkbox]"
-          )
-        ){
-
-          return;
-        }
-
-        if(
-          !event.target.checked
-        ){
-
-          return;
-        }
-
-
-        const other=
-
-          [
-            ...document.querySelectorAll(
-              "#includeAirlines input"
-            )
-          ]
-
-          .find(
-            input=>
-
-              input.value
-              ===
-              event.target.value
-          );
-
-
-        if(other){
-
-          other.checked=
-            false;
-        }
-      }
-    );
+  $("includeAirlines").addEventListener("change",e=>{
+    if(!e.target.matches("input[type=checkbox]")||!e.target.checked)return;
+    const o=[...document.querySelectorAll("#excludeAirlines input")].find(i=>i.value===e.target.value);
+    if(o)o.checked=false;
+  });
+  $("excludeAirlines").addEventListener("change",e=>{
+    if(!e.target.matches("input[type=checkbox]")||!e.target.checked)return;
+    const o=[...document.querySelectorAll("#includeAirlines input")].find(i=>i.value===e.target.value);
+    if(o)o.checked=false;
+  });
 }
 
-
-/* =========================================================
-   RESET
-========================================================= */
-
 function resetFilters(){
-
-  /*
-    目的地預設全選
-  */
-
-  setAll(
-    "destinations",
-    true
-  );
-
-
-  /*
-    想要航空公司預設全選
-  */
-
-  setAll(
-    "includeAirlines",
-    true
-  );
-
-
-  /*
-    排除預設全不選
-  */
-
-  setAll(
-    "excludeAirlines",
-    false
-  );
-
-
-  $("stayMin").value=
-    DATA.stay_min_days
-    ||
-    5;
-
-
-  $("stayMax").value=
-    DATA.stay_max_days
-    ||
-    15;
-
-
-  $("maxPrice").value=
-    "";
-
-
-  $("scoreMin").value=
-    "40";
-
-
-  $("dateFrom").value=
-    DATA.search_start_date
-    ||
-    "";
-
-
-  $("dateTo").value=
-    DATA.search_end_date
-    ||
-    "";
-
-
-  $("sortBy").value=
-    "cheap";
-
-
+  setAll("destinations",true);
+  setAll("includeAirlines",true);
+  setAll("excludeAirlines",false);
+  $("stayMin").value=DATA.stay_min_days||5;
+  $("stayMax").value=DATA.stay_max_days||15;
+  $("maxPrice").value="";
+  $("scoreMin").value="40";
+  $("dateFrom").value=DATA.search_start_date||"";
+  $("dateTo").value=DATA.search_end_date||"";
+  $("sortBy").value="cheap";
   applyFilters();
 }
 
-
-/* =========================================================
-   LOAD
-========================================================= */
-
 async function load(){
-
   try{
-
-    const response=
-
-      await fetch(
-        "./data/latest.json",
-        {
-          cache:"no-store"
-        }
-      );
-
-
-    if(
-      !response.ok
-    ){
-
-      throw new Error(
-        `HTTP ${response.status}`
-      );
-    }
-
-
-    DATA=
-      await response.json();
-
-
-    if(
-      !Array.isArray(
-        DATA.deals
-      )
-    ){
-
-      throw new Error(
-        "latest.json 不是新版 deals 格式"
-      );
-    }
-
-
-    fillControls(
-      DATA
-    );
-
-
+    const response=await fetch("./data/latest.json",{cache:"no-store"});
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);
+    DATA=await response.json();
+    if(!Array.isArray(DATA.deals))throw new Error("latest.json 不是新版 deals 格式");
+    fillControls(DATA);
     bindMutualExclusion();
-
-
-    [
-      "destinations",
-      "includeAirlines",
-      "excludeAirlines"
-    ].forEach(
-      id=>{
-
-        $(id).addEventListener(
-          "change",
-          updateMultiStatus
-        );
-      }
-    );
-
-
+    ["destinations","includeAirlines","excludeAirlines"].forEach(id=>$(id).addEventListener("change",updateMultiStatus));
     updateMultiStatus();
-
-
-    /*
-      DESTINATION BUTTONS
-    */
-
-    $("destAll")
-      .onclick=
-        ()=>{
-
-          setAll(
-            "destinations",
-            true
-          );
-        };
-
-
-    $("destNone")
-      .onclick=
-        ()=>{
-
-          setAll(
-            "destinations",
-            false
-          );
-        };
-
-
-    /*
-      WANT AIRLINE BUTTONS
-    */
-
-    $("includeAll")
-      .onclick=
-        ()=>{
-
-          /*
-            因為同一航空公司不能
-            同時「想要」和「不要」，
-            所以按想要全選會清除所有排除。
-          */
-
-          setAll(
-            "includeAirlines",
-            true
-          );
-
-          setAll(
-            "excludeAirlines",
-            false
-          );
-        };
-
-
-    $("includeNone")
-      .onclick=
-        ()=>{
-
-          setAll(
-            "includeAirlines",
-            false
-          );
-        };
-
-
-    /*
-      EXCLUDE AIRLINE BUTTONS
-    */
-
-    $("excludeAll")
-      .onclick=
-        ()=>{
-
-          setAll(
-            "excludeAirlines",
-            true
-          );
-
-          setAll(
-            "includeAirlines",
-            false
-          );
-        };
-
-
-    $("excludeNone")
-      .onclick=
-        ()=>{
-
-          setAll(
-            "excludeAirlines",
-            false
-          );
-        };
-
-
-    /*
-      PRICE QUICK BUTTON
-
-      只填入欄位。
-      不會立即篩選。
-
-      最後仍由使用者按：
-      套用篩選條件
-    */
-
-    document
-      .querySelectorAll(
-        ".quick"
-      )
-      .forEach(
-        button=>{
-
-          button.onclick=
-            ()=>{
-
-              $("maxPrice")
-                .value=
-                  button.dataset.price;
-            };
-        }
-      );
-
-
-    /*
-      APPLY
-    */
-
-    $("applyFilters")
-      .onclick=
-        applyFilters;
-
-
-    /*
-      RESET
-    */
-
-    $("resetFilters")
-      .onclick=
-        resetFilters;
-
-
-    /*
-      SORT
-
-      排序不需要重新按套用。
-    */
-
-    $("sortBy")
-      .onchange=
-        renderCurrent;
-
-
-    /*
-      SEARCH STATUS
-    */
-
-    $("progress")
-      .textContent=
-
-        `本輪：近期 ${DATA.near_checks_planned||0}`
-
-        +
-
-        ` + 全年 ${DATA.annual_checks_planned||0}`
-
-        +
-
-        ` · 成功 ${DATA.checked_this_run||0}`
-
-        +
-
-        ` · 全年網格 ${Number(DATA.total_combos_in_grid||0).toLocaleString("zh-TW")}`;
-
-
-    /*
-      UPDATE TIME
-    */
-
-    const updated=
-      new Date(
-        DATA.generated_at
-      );
-
-
-    $("summaryUpdatedBox")
-      .textContent=
-
-        `最後更新：${updated.toLocaleString("zh-TW",{hour12:false})}`
-
-        +
-
-        ` · 搜尋窗口 ${safe(DATA.search_start_date)} ～ ${safe(DATA.search_end_date)}`
-
-        +
-
-        ` · 近期高頻至 ${safe(DATA.near_term_end_date)}`;
-
-
-    /*
-      第一次進網頁：
-      目的地全選
-      航空公司全選
-      不排除任何航空公司
-      顯示全部結果
-    */
-
+    $("destAll").onclick=()=>setAll("destinations",true);
+    $("destNone").onclick=()=>setAll("destinations",false);
+    $("includeAll").onclick=()=>{setAll("includeAirlines",true);setAll("excludeAirlines",false);};
+    $("includeNone").onclick=()=>setAll("includeAirlines",false);
+    $("excludeAll").onclick=()=>{setAll("excludeAirlines",true);setAll("includeAirlines",false);};
+    $("excludeNone").onclick=()=>setAll("excludeAirlines",false);
+    document.querySelectorAll(".quick").forEach(b=>b.onclick=()=>{$("maxPrice").value=b.dataset.price;});
+    $("applyFilters").onclick=applyFilters;
+    $("resetFilters").onclick=resetFilters;
+    $("sortBy").onchange=renderCurrent;
+    $("progress").textContent=`本輪：近期 ${DATA.near_checks_planned||0} + 全年 ${DATA.annual_checks_planned||0} · 成功 ${DATA.checked_this_run||0} · 全年網格 ${Number(DATA.total_combos_in_grid||0).toLocaleString("zh-TW")}`;
+    const updated=new Date(DATA.generated_at);
+    $("summaryUpdatedBox").textContent=`最後更新：${updated.toLocaleString("zh-TW",{hour12:false})} · 搜尋窗口 ${safe(DATA.search_start_date)} ～ ${safe(DATA.search_end_date)} · 近期高頻至 ${safe(DATA.near_term_end_date)}`;
     applyFilters();
-
-  }
-
-  catch(error){
-
-    $("empty")
-      .style
-      .display=
-        "block";
-
-
-    $("empty")
-      .textContent=
-
-        `讀取資料失敗：${error.message}`;
+  }catch(error){
+    $("empty").style.display="block";
+    $("empty").textContent=`讀取資料失敗：${error.message}`;
   }
 }
-
 
 load();
 
