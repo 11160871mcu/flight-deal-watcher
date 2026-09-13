@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-13T02:41:53+00:00",
+  "generated_at": "2026-09-13T07:57:30+00:00",
   "search_start_date": "2026-09-13",
   "search_end_date": "2027-09-13",
   "near_term_end_date": "2026-12-12",
@@ -24,7 +24,7 @@
   "attempted_this_run": 144,
   "near_checks_planned": 48,
   "annual_checks_planned": 96,
-  "total_checks_so_far": 3456,
+  "total_checks_so_far": 3600,
   "total_combos_in_grid": 32208,
   "route_near_quota": {
     "TPE|NRT": 6,
