@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-12T22:48:53+00:00",
+  "generated_at": "2026-09-13T02:41:53+00:00",
   "search_start_date": "2026-09-13",
   "search_end_date": "2027-09-13",
   "near_term_end_date": "2026-12-12",
@@ -20,11 +20,11 @@
   "stay_min_days": 5,
   "stay_max_days": 15,
   "history_days": 60,
-  "checked_this_run": 143,
+  "checked_this_run": 0,
   "attempted_this_run": 144,
   "near_checks_planned": 48,
   "annual_checks_planned": 96,
-  "total_checks_so_far": 3312,
+  "total_checks_so_far": 3456,
   "total_combos_in_grid": 32208,
   "route_near_quota": {
     "TPE|NRT": 6,
