@@ -826,6 +826,9 @@ h1{
         <div id="summaryDatesBox" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; line-height:1.8;"></div>
         <div id="summaryUpdatedBox" style="margin-top:8px; color:var(--muted); font-size:11px;"></div>
 
+        <!-- 新增：掃描進度，數字只會增加，可用來驗證真的有在往前掃 -->
+        <div id="scanProgressBox" style="margin-top:8px; color:var(--muted); font-size:11px;"></div>
+
         <!-- 新增：最下面也能收起篩選條件，不用滑到最上面 -->
         <div class="filters-bottom-toggle">
           <button id="collapseFiltersBottom" class="reset" type="button">↑ 收起篩選條件</button>
@@ -1194,7 +1197,6 @@ function renderCheapestRank(rows){
 
   const optionsHtml=ranked.map(deal=>{
     const d=new Date(deal.departure_date);
-    // 加上年份的日期格式
     const md=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")} (${days[d.getDay()]})`;
     return`<option value="${deal.departure_date}">${md} ｜ ${airportCn(deal.destination)} ｜ ${money(deal.price)}</option>`;
   }).join("");
@@ -1335,7 +1337,6 @@ function renderCurrent(){
 
   const u=[...new Set(rows.map(r=>r.departure_date))].filter(Boolean).sort();
 
-  // 日期區間簡化邏輯（包含年份判斷）
   function formatDateRanges(dates) {
     if (!dates.length) return "";
     const ranges = [];
@@ -1471,6 +1472,14 @@ async function load(){
     $("progress").textContent=`本輪：近期 ${DATA.near_checks_planned||0} + 全年 ${DATA.annual_checks_planned||0} · 成功 ${DATA.checked_this_run||0} · 全年網格 ${Number(DATA.total_combos_in_grid||0).toLocaleString("zh-TW")}`;
     const updated=new Date(DATA.generated_at);
     $("summaryUpdatedBox").textContent=`最後更新：${updated.toLocaleString("zh-TW",{hour12:false})} · 搜尋窗口 ${safe(DATA.search_start_date)} ～ ${safe(DATA.search_end_date)} · 近期高頻至 ${safe(DATA.near_term_end_date)}`;
+
+    if(DATA.scan_progress){
+      const sp=DATA.scan_progress;
+      const nearLaps=Number(sp.near_laps_completed_avg||0).toFixed(2);
+      const annualLaps=Number(sp.annual_laps_completed_avg||0).toFixed(2);
+      $("scanProgressBox").textContent=`📡 掃描進度（固定起始日 ${safe(sp.epoch_date)}，此數字只會增加不會歸零，可用來確認系統真的有持續往前掃）：近期軌已繞 ${nearLaps} 圈 · 全年軌已繞 ${annualLaps} 圈`;
+    }
+
     applyFilters();
   }catch(error){
     $("empty").style.display="block";

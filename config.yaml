@@ -57,6 +57,15 @@ request_delay_seconds: 0.3
 # 跌幅達到這個百分比才標記為「突然降價」（跟 Cheap Score 是不同訊號）
 price_drop_alert_percent: 20
 
+# 通知門檻（重要）：
+# Price Drop 只是跟「自己上一次」比，不代表現在真的便宜——有可能
+# 跌了 50% 但本來就貴，跌完還是貴。所以 ntfy 通知除了要 price_drop
+# 是 true，還要同時符合 Cheap Score 達到這個分數以上（代表跟同航線
+# 歷史價格池比，這個價格本身也算便宜），才會真的推播通知，避免收到
+# 一堆「跌價但還是貴」的無意義訊息。
+# 對照網頁上的分級：90+ 超值／70~89 不錯／40~69 一般／<40 偏貴。
+notify_min_cheap_score: 70
+
 # ntfy.sh 推播設定
 # 注意：頻道名稱 NTFY_TOPIC 不寫在這裡，
 # 是機密資訊，改用 GitHub Secrets 帶進去（見 README 設定步驟）
