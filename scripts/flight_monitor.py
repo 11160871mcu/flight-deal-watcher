@@ -4,6 +4,7 @@ import csv
 import datetime as dt
 import hashlib
 import json
+import os
 import re
 import time
 
@@ -12,6 +13,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import requests
 import yaml
 
 from dateutil.relativedelta import relativedelta
@@ -2321,6 +2323,188 @@ def save_json(
 
 
 # ============================================================
+# NTFY 推播（Price Drop 專用）
+# ============================================================
+
+NTFY_SERVER = "https://ntfy.sh"
+
+
+def format_drop_line(
+    deal: dict[str, Any],
+) -> str:
+
+    route = (
+        f"{deal['origin']}"
+        "→"
+        f"{deal['destination']}"
+    )
+
+    dates = (
+        f"{deal['departure_date']}"
+        " ~ "
+        f"{deal['return_date']}"
+    )
+
+    drop_percent = deal.get(
+        "price_drop_percent"
+    )
+
+    drop_text = (
+        f"↓{drop_percent}%"
+        if drop_percent is not None
+        else ""
+    )
+
+    previous_price = deal.get(
+        "previous_price"
+    )
+
+    previous_text = (
+        f"，原 NT${previous_price:,}"
+        if previous_price
+        else ""
+    )
+
+    price = int(
+        deal["price"]
+    )
+
+    return (
+        f"{route} {dates}｜"
+        f"NT${price:,} "
+        f"{drop_text}{previous_text}"
+    )
+
+
+def send_ntfy_notification(
+    deals: list[dict[str, Any]],
+    cfg: dict[str, Any],
+) -> None:
+
+    # NTFY_TOPIC 是機密頻道名稱，
+    # 故意不放在 config.yaml 裡，
+    # 只透過環境變數（GitHub Secrets）帶進來，
+    # 沒設定就靜靜跳過，不影響其他功能。
+    topic = os.environ.get(
+        "NTFY_TOPIC",
+        "",
+    ).strip()
+
+    if not topic:
+
+        print(
+            "  未設定 NTFY_TOPIC，略過推播"
+        )
+
+        return
+
+    drops = [
+
+        deal
+        for deal in deals
+        if deal.get(
+            "price_drop"
+        )
+    ]
+
+    if not drops:
+
+        print(
+            "  本輪沒有偵測到突然降價，不發送推播"
+        )
+
+        return
+
+    # 跌最兇的排最前面
+    drops.sort(
+        key=lambda deal:
+            -(
+                deal.get(
+                    "price_drop_percent"
+                )
+                or 0
+            )
+    )
+
+    max_items = int(
+        cfg.get(
+            "notify_max_items",
+            10,
+        )
+    )
+
+    shown = drops[:max_items]
+
+    remaining = (
+        len(drops)
+        -
+        len(shown)
+    )
+
+    lines = [
+        format_drop_line(deal)
+        for deal in shown
+    ]
+
+    if remaining > 0:
+
+        lines.append(
+            f"...等其餘 {remaining} 筆"
+        )
+
+    payload: dict[str, Any] = {
+
+        "topic": topic,
+
+        "title":
+            f"✈️ 偵測到 {len(drops)} 個航班突然降價",
+
+        "message":
+            "\n".join(lines),
+
+        "tags":
+            ["airplane", "moneybag"],
+
+        # ntfy 優先度 1(最低)～5(最高)，
+        # 4 = 高，會讓通知比較明顯但不到會震動干擾的程度
+        "priority": 4,
+    }
+
+    site_url = str(
+        cfg.get(
+            "site_url"
+        )
+        or ""
+    ).strip()
+
+    if site_url:
+
+        payload["click"] = site_url
+
+    try:
+
+        response = requests.post(
+            NTFY_SERVER,
+            json=payload,
+            timeout=10,
+        )
+
+        response.raise_for_status()
+
+        print(
+            f"  已推播 {len(drops)} 筆降價通知"
+        )
+
+    except Exception as exc:
+
+        print(
+            "  推播失敗（不影響資料更新）：",
+            type(exc).__name__,
+            str(exc),
+        )
+
+
+# ============================================================
 # MAIN
 # ============================================================
 
@@ -2572,6 +2756,11 @@ def main():
     save_json(
         state_path,
         state,
+    )
+
+    send_ntfy_notification(
+        latest["deals"],
+        cfg,
     )
 
     print(

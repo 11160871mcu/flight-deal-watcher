@@ -57,6 +57,12 @@ request_delay_seconds: 0.3
 # 跌幅達到這個百分比才標記為「突然降價」（跟 Cheap Score 是不同訊號）
 price_drop_alert_percent: 20
 
+# ntfy.sh 推播設定
+# 注意：頻道名稱 NTFY_TOPIC 不寫在這裡，
+# 是機密資訊，改用 GitHub Secrets 帶進去（見 README 設定步驟）
+notify_max_items: 10   # 一次通知最多列出幾筆降價，避免內容太長
+site_url: ""            # 你的 GitHub Pages 網址，點通知會開這個網址；留空就不放連結
+
 # Cheap Score 使用近期價格池
 history_days: 60
 
