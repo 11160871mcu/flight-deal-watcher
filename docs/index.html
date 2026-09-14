@@ -358,6 +358,19 @@ h1{
   color:var(--teal);
 }
 
+/* 篩選面板最下面的收合按鈕，避免使用者要滑回最上面才能收起 */
+.filters-bottom-toggle{
+  margin-top:18px;
+  padding-top:14px;
+  border-top:1px solid var(--line);
+  text-align:center;
+}
+
+.filters-bottom-toggle button{
+  width:100%;
+  max-width:320px;
+}
+
 
 /* =====================================================
    結果區
@@ -424,6 +437,19 @@ h1{
   display:flex;
   flex-direction:column;
   gap:12px;
+  transition: box-shadow .3s ease, border-color .3s ease, transform .3s ease;
+}
+
+/* 從「各出發日期最低票價」下拉選單點選後，捲動過來要高亮的卡片 */
+.card-highlight{
+  animation: cardHighlightPulse 1.1s ease-in-out 2;
+  box-shadow: 0 0 0 3px var(--teal), 0 0 26px rgba(88,223,193,.55);
+  border-color: var(--teal);
+}
+
+@keyframes cardHighlightPulse{
+  0%,100%{ transform: scale(1); }
+  50%{ transform: scale(1.015); }
 }
 
 .route{
@@ -800,6 +826,11 @@ h1{
         <div id="summaryDatesBox" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; line-height:1.8;"></div>
         <div id="summaryUpdatedBox" style="margin-top:8px; color:var(--muted); font-size:11px;"></div>
 
+        <!-- 新增：最下面也能收起篩選條件，不用滑到最上面 -->
+        <div class="filters-bottom-toggle">
+          <button id="collapseFiltersBottom" class="reset" type="button">↑ 收起篩選條件</button>
+        </div>
+
       </div>
 
     </details>
@@ -919,6 +950,7 @@ const AIRLINES={
 let DATA=null;
 let CURRENT_RESULTS=[];
 let CURRENT_FILTERS=null;
+let RANK_DATE_MAP={};
 const $=$=>document.getElementById($);
 
 function safe(value,fallback="—"){
@@ -1011,7 +1043,7 @@ function checkbox(val,lbl,chk=true){
 function optionsForDeal(deal,filters){
   let opts=Array.isArray(deal.flight_options)?[...deal.flight_options]:[];
   if(!opts.length)opts=[{airline:UNKNOWN_AIRLINE,departure:null,arrival:null,duration:null,stops:null}];
-  
+
   if(filters.includeAirlines.length){
     opts=opts.filter(o=>{
       const n=airlineParts(o.airline);
@@ -1041,10 +1073,16 @@ function optionHtml(o){
     </div>`;
 }
 
+// 每筆優惠卡片的唯一 DOM id，用於「各出發日期最低票價」點選後定位捲動
+function dealElementId(deal){
+  const raw=[deal.origin,deal.destination,deal.departure_date,deal.return_date,deal.stay_days].join("_");
+  return "deal-"+raw.replace(/[^a-zA-Z0-9_-]/g,"");
+}
+
 function cardHtml(deal,filters){
   const opts=optionsForDeal(deal,filters);
   return`
-    <article class="card">
+    <article class="card" id="${dealElementId(deal)}">
       <div>
         <div class="route">${airportCn(deal.origin)} <span class="arrow">→</span> ${airportCn(deal.destination)}</div>
         <div class="airport-en">${airportEn(deal.origin)} → ${airportEn(deal.destination)}</div>
@@ -1080,13 +1118,13 @@ function fillControls(data){
     if(!opts.length)airSet.add(UNKNOWN_AIRLINE);
     opts.forEach(o=>airlineParts(o.airline).forEach(a=>airSet.add(a)));
   });
-  
+
   const airList=[...airSet].sort((a,b)=>{
     if(a===UNKNOWN_AIRLINE)return 1;
     if(b===UNKNOWN_AIRLINE)return -1;
     return a.localeCompare(b,"en",{sensitivity:"base"});
   });
-  
+
   airList.forEach(a=>{
     $("includeAirlines").appendChild(checkbox(a,airlineName(a),true));
     $("excludeAirlines").appendChild(checkbox(a,airlineName(a),false));
@@ -1131,10 +1169,10 @@ function renderScoreBands(c,sMin){
 function renderCheapestRank(rows){
   const box=$("cheapestRankBox");
   if(!box)return;
-  if(!rows.length){box.style.display="none";return;}
+  if(!rows.length){box.style.display="none";RANK_DATE_MAP={};return;}
 
   box.style.display="block";
-  
+
   // 找出「每一天」的絕對最低票價（不分目的地，一天只留一筆）
   const bestByKey=new Map();
   rows.forEach(deal=>{
@@ -1148,8 +1186,12 @@ function renderCheapestRank(rows){
     String(a.departure_date).localeCompare(String(b.departure_date))
   );
 
+  // 記錄「日期 -> 該筆優惠物件」，選單 onchange 時用來定位卡片
+  RANK_DATE_MAP={};
+  ranked.forEach(deal=>{ RANK_DATE_MAP[deal.departure_date]=deal; });
+
   const days=["週日","週一","週二","週三","週四","週五","週六"];
-  
+
   const optionsHtml=ranked.map(deal=>{
     const d=new Date(deal.departure_date);
     // 加上年份的日期格式
@@ -1157,16 +1199,77 @@ function renderCheapestRank(rows){
     return`<option value="${deal.departure_date}">${md} ｜ ${airportCn(deal.destination)} ｜ ${money(deal.price)}</option>`;
   }).join("");
 
-  // 更新標題名稱與下拉選單提示文字
   box.innerHTML=`
     <div style="font-size:13px; font-weight:900; color:var(--blue); margin-bottom:10px;">
       📅 各出發日期最低票價
+      <span style="font-weight:400; color:var(--muted); font-size:11px;">（選擇後會自動捲動到對應卡片，看完整資訊）</span>
     </div>
-    <select style="width:100%; height:46px; border:1px solid var(--line); border-radius:8px; background:var(--input); color:var(--gold); padding:0 12px; font-size:15px; font-weight:bold; cursor:pointer; outline:none; appearance:auto;">
+    <select id="rankDateSelect" style="width:100%; height:46px; border:1px solid var(--line); border-radius:8px; background:var(--input); color:var(--gold); padding:0 12px; font-size:15px; font-weight:bold; cursor:pointer; outline:none; appearance:auto;">
       <option value="" disabled selected>▾ 點開下拉選單：查看每日最低價格</option>
       ${optionsHtml}
     </select>
   `;
+
+  const selectEl=$("rankDateSelect");
+  if(selectEl){
+    selectEl.onchange=(e)=>{
+      const deal=RANK_DATE_MAP[e.target.value];
+      if(deal)jumpToDeal(deal);
+    };
+  }
+}
+
+// 確保某筆 deal 不會被目前篩選條件擋掉（自動放寬，會回饋為 changed）
+function ensureDealVisible(deal){
+  let changed=false;
+
+  const destCb=[...document.querySelectorAll("#destinations input")].find(i=>i.value===deal.destination);
+  if(destCb && !destCb.checked){ destCb.checked=true; changed=true; }
+
+  const scoreSel=$("scoreMin");
+  if(Number(scoreSel.value||0) > Number(deal.cheap_score||0)){ scoreSel.value="0"; changed=true; }
+
+  const maxPriceInput=$("maxPrice");
+  if(maxPriceInput.value && Number(maxPriceInput.value) < Number(deal.price)){ maxPriceInput.value=""; changed=true; }
+
+  if($("dateFrom").value && $("dateFrom").value > deal.departure_date){ $("dateFrom").value=DATA.search_start_date||""; changed=true; }
+  if($("dateTo").value && $("dateTo").value < deal.departure_date){ $("dateTo").value=DATA.search_end_date||""; changed=true; }
+
+  if(Number($("stayMin").value) > Number(deal.stay_days)){ $("stayMin").value=DATA.stay_min_days||5; changed=true; }
+  if(Number($("stayMax").value) < Number(deal.stay_days)){ $("stayMax").value=DATA.stay_max_days||15; changed=true; }
+
+  const airlineCodes=new Set();
+  if(Array.isArray(deal.flight_options) && deal.flight_options.length){
+    deal.flight_options.forEach(o=>airlineParts(o.airline).forEach(a=>airlineCodes.add(a)));
+  }else{
+    airlineCodes.add(UNKNOWN_AIRLINE);
+  }
+
+  airlineCodes.forEach(a=>{
+    const incCb=[...document.querySelectorAll("#includeAirlines input")].find(i=>i.value===a);
+    if(incCb && !incCb.checked){ incCb.checked=true; changed=true; }
+    const excCb=[...document.querySelectorAll("#excludeAirlines input")].find(i=>i.value===a);
+    if(excCb && excCb.checked){ excCb.checked=false; changed=true; }
+  });
+
+  if(changed){
+    updateMultiStatus();
+    applyFilters();
+  }
+}
+
+// 點了「各出發日期最低票價」後，捲動並高亮對應卡片
+function jumpToDeal(deal){
+  ensureDealVisible(deal);
+
+  requestAnimationFrame(()=>{
+    const el=document.getElementById(dealElementId(deal));
+    if(el){
+      el.scrollIntoView({behavior:"smooth",block:"center"});
+      el.classList.add("card-highlight");
+      setTimeout(()=>el.classList.remove("card-highlight"),2200);
+    }
+  });
 }
 
 function applyFilters(){
@@ -1245,23 +1348,23 @@ function renderCurrent(){
       const y1 = d1.getFullYear();
       const m1 = d1.getMonth() + 1;
       const day1 = d1.getDate();
-      
+
       if (s === e) {
         return `${y1}/${m1}/${day1}號`;
       }
-      
+
       const y2 = d2.getFullYear();
       const m2 = d2.getMonth() + 1;
       const day2 = d2.getDate();
-      
+
       if (y1 === y2) {
         if (m1 === m2) {
-          return `${y1}/${m1}/${day1}~${day2}號`; // 同年同月
+          return `${y1}/${m1}/${day1}~${day2}號`;
         } else {
-          return `${y1}/${m1}/${day1}~${m2}/${day2}號`; // 同年跨月
+          return `${y1}/${m1}/${day1}~${m2}/${day2}號`;
         }
       } else {
-        return `${y1}/${m1}/${day1}~${y2}/${m2}/${day2}號`; // 跨年
+        return `${y1}/${m1}/${day1}~${y2}/${m2}/${day2}號`;
       }
     }
 
@@ -1270,14 +1373,14 @@ function renderCurrent(){
       const diff = Math.round((new Date(curr) - new Date(prev)) / 86400000);
 
       if (diff === 1) {
-        prev = curr; // 連續日期，更新 prev 往後推
+        prev = curr;
       } else {
-        ranges.push(formatRange(start, prev)); // 斷開了，把前面的區間存起來
+        ranges.push(formatRange(start, prev));
         start = curr;
         prev = curr;
       }
     }
-    ranges.push(formatRange(start, prev)); // 推入最後一組
+    ranges.push(formatRange(start, prev));
     return ranges.join("、");
   }
 
@@ -1300,7 +1403,7 @@ function renderCurrent(){
     $("empty").style.display="block";
     return;
   }
-  
+
   $("empty").style.display="none";
   $("grid").innerHTML=rows.map(deal=>cardHtml(deal,CURRENT_FILTERS)).join("");
 }
@@ -1332,6 +1435,15 @@ function resetFilters(){
   applyFilters();
 }
 
+// 收起篩選面板並捲回篩選區最上方（配合最下面的收合按鈕使用）
+function collapseFiltersPanel(){
+  const details=document.querySelector(".filters-collapse");
+  if(details){
+    details.removeAttribute("open");
+    details.scrollIntoView({behavior:"smooth",block:"start"});
+  }
+}
+
 async function load(){
   try{
     const response=await fetch("./data/latest.json",{cache:"no-store"});
@@ -1352,6 +1464,10 @@ async function load(){
     $("applyFilters").onclick=applyFilters;
     $("resetFilters").onclick=resetFilters;
     $("sortBy").onchange=renderCurrent;
+
+    const collapseBottomBtn=$("collapseFiltersBottom");
+    if(collapseBottomBtn)collapseBottomBtn.onclick=collapseFiltersPanel;
+
     $("progress").textContent=`本輪：近期 ${DATA.near_checks_planned||0} + 全年 ${DATA.annual_checks_planned||0} · 成功 ${DATA.checked_this_run||0} · 全年網格 ${Number(DATA.total_combos_in_grid||0).toLocaleString("zh-TW")}`;
     const updated=new Date(DATA.generated_at);
     $("summaryUpdatedBox").textContent=`最後更新：${updated.toLocaleString("zh-TW",{hour12:false})} · 搜尋窗口 ${safe(DATA.search_start_date)} ～ ${safe(DATA.search_end_date)} · 近期高頻至 ${safe(DATA.near_term_end_date)}`;

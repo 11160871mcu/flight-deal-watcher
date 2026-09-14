@@ -62,6 +62,43 @@
 
 ---
 
+## 🧭 游標系統（方案 B：固定 epoch，只增不減）
+
+**這是這版最重要的更新。**
+
+### 舊做法的問題
+舊版每次執行都用「今天」當清單的第 0 天，重新產生一份「今天 ~ 未來
+X 天」的清單，再靠一個「位移補償公式」去猜「游標昨天指到的位置，
+換算到今天的新清單應該在哪裡」。這個補償公式一旦遇到：
+- 排程漏跑一次
+- 月份長度不一樣（28天 / 30天 / 31天）
+- 補償公式本身算錯
+
+游標就會被侵蝕、原地踏步，甚至跳號漏掉一整批日期，長期下來覆蓋率會
+悄悄變差而不容易發現。
+
+### 新做法：固定起始日（epoch_date），游標永遠只增不減
+- `state.json` 新增 `epoch_date` 欄位：**只在系統第一次執行時寫入一次，
+  之後永遠不會再改變。**
+- 每一組「出發日期 × 停留天數」在虛擬清單裡的位置，是用
+  `(出發日 - epoch_date) 的天數 × 停留天數種類數 + 停留天數序號`
+  算出來的，只跟 `epoch_date` 有關，**不會因為「今天」往前推進而重新
+  洗牌**。清單只會往未來延伸（因為搜尋視窗右端會隨時間往後推），左端
+  （epoch_date）永遠不動。
+- 游標 `cursor` 是一個**單純累加的整數**：每挑到一組或跳過一組
+  （例如出發日已經過去，永遠不會再有效），游標就 `+1`。**不會有任何
+  「按經過天數扣分 / 重新校正」的邏輯**，所以：
+  - 就算某一輪完全沒跑到（workflow 失敗、被跳過…），游標停在原地，
+    下次接著跑，不會被懲罰。
+  - 過期的舊日期被掃到時直接永久跳過，游標繼續往前走，不會原地打轉，
+    也不會回頭浪費時間重新檢查已經失效的組合。
+- `state.json` 版本號因此升到 `6`。舊版（version 5）的 `state.json`
+  會被自動判定為格式不符，程式會自己重置成新格式並重新設定
+  `epoch_date`，**不需要手動處理**，唯一的影響是游標會從頭開始累積
+  一次（不影響已經存在的 `history.csv` / `latest.json`）。
+
+---
+
 ## 🔔 通知：ntfy.sh 推播
 
 偵測到 Price Drop 時，系統會透過 **ntfy.sh** 主動推播到你手機，不用自己
@@ -71,124 +108,3 @@
 - 每輪最多列出 `notify_max_items`（預設 10 筆）降價最多的組合，避免通知太長
 - 沒有任何降價時**不會發通知**，不會每輪都吵你
 - 通知內容範例：
-
-  ```
-  ✈️ 偵測到 3 個航班突然降價
-  TPE→PUS 2026-09-16 ~ 2026-09-30｜NT$3,730 ↓45.3%，原 NT$6,819
-  TPE→ICN 2026-09-15 ~ 2026-09-30｜NT$4,498 ↓38.5%，原 NT$7,311
-  ...等其餘 1 筆
-  ```
-
-- 若有設定 `site_url`，點通知會直接打開你的優惠網站
-
-### 設定步驟
-
-1. **手機安裝 ntfy App**（iOS App Store / Google Play 搜尋 "ntfy"），
-   或直接用網頁版 <https://ntfy.sh/app>
-2. **想一個獨特的頻道名稱**。ntfy 公開伺服器上的頻道是公開的，只要知道
-   名字任何人都能訂閱或發送，所以**不要取成 `flight-alert` 這種一看就懂
-   的名字**，建議混一些隨機字元，例如 `tw-tpe-flight-a8x92k7f`
-3. App 裡點 **"+" → Subscribe to topic**，貼上剛剛想的名稱，訂閱起來
-4. 到你的 GitHub repo → **Settings → Secrets and variables → Actions →
-   New repository secret**：
-   - Name：`NTFY_TOPIC`
-   - Value：剛剛想的那組頻道名稱
-5. （可選）在 `config.yaml` 把 `site_url` 填成你的 GitHub Pages /
-   Vercel 網址，通知點下去就會直接開啟優惠列表
-6. 到 repo 的 **Actions** 分頁 → 選 workflow → **Run workflow** 手動觸發
-   一次，測試看看能不能收到推播
-   - 如果這次剛好沒有任何降價，就不會收到通知，這是設計上刻意的
-   - 想確認推播管線真的有接通，可以先把 `price_drop_alert_percent`
-     臨時調低（例如 `1`），故意讓它更容易觸發，測完記得改回 `20`
-
-> ntfy 免費公開伺服器沒有加密、也不保證送達，拿來收機票降價通知完全沒問題，
-> 但不要拿它傳真正機密的東西。
-
----
-
-## ⏰ 自動化排程
-
-透過 **GitHub Actions**（`.github/workflows/check-flights.yml`）排程，
-完全不需要手動觸發：
-
-```yaml
-schedule:
-  - cron: "0 */3 * * *"   # 每 3 小時整點，一天 8 輪
-```
-
-換算成台灣時間：**08 / 11 / 14 / 17 / 20 / 23 / 02 / 05 點**，每天固定跑
-8 輪。也支援手動觸發（`workflow_dispatch`），方便測試或想馬上刷新資料時
-使用。
-
-### 執行流程
-1. Checkout 專案原始碼
-2. 安裝 Python 3.11 及 `requirements.txt` 相依套件（含 `fast-flights`
-   爬取 Google Flights、`requests` 發送 ntfy 推播）
-3. 執行 `scripts/flight_monitor.py`（`NTFY_TOPIC` 從 GitHub Secrets 帶入）：
-   - 依雙軌策略挑出本輪要查的日期組合
-   - 逐一查詢並寫入結果
-   - 重新計算 Cheap Score、比對 Price Drop
-   - 輸出最新的 `latest.json`、更新查詢游標 `state.json`
-   - 有偵測到降價就發送 ntfy 推播
-4. 若資料有變動，自動 `git commit`（訊息含 `[skip ci]`）並 push 回 `main`
-5. Push 前先 `git pull --rebase`，降低跟手動修改衝突的機率
-6. `concurrency` 群組鎖避免兩次排程重疊時同時寫入資料檔
-
-> Job 逾時上限 180 分鐘。由於單次查詢量已經配合排程頻率砍半
-> （近期軌 48 組 / 全年軌 96 組，維持每天總量不變），180 分鐘緩衝相當充足。
-
----
-
-## 🗂️ 專案結構
-
-```
-.
-├── .github/workflows/check-flights.yml   # 排程設定 + NTFY_TOPIC 環境變數
-├── scripts/flight_monitor.py             # 爬蟲 + 雙軌搜尋 + Cheap Score + Price Drop + ntfy 推播
-├── config.yaml                           # 所有搜尋 / 通知參數設定
-├── docs/
-│   ├── index.html                        # 前端網頁（篩選 / 排序 / 降價徽章）
-│   └── data/
-│       ├── latest.json                   # 最新一批優惠（含 Score、降價標記）
-│       ├── history.csv                   # 所有歷史查詢紀錄
-│       └── state.json                    # 雙軌搜尋游標 + 累計嘗試次數
-├── requirements.txt
-└── vercel.json
-```
-
-## 🖥️ 前端功能（`index.html`）
-- 目的地 / 航空公司（想要／排除）多選篩選
-- 出發日期範圍、停留天數、最高價格、最低 Cheap Score 篩選
-- 排序：**剛降價優先**（預設）、相對便宜優先、價格高低、折扣幅度、出發日期、停留天數
-- 剛降價的卡片有紅色閃爍徽章，標示跌幅與原價
-- 「各出發日期最低票價」快速下拉選單
-- 手機版響應式排版
-
----
-
-## ⚙️ `config.yaml` 主要設定說明
-
-```yaml
-# 雙軌搜尋額度（每次執行）
-near_term_days: 90
-near_checks_per_run: 48
-annual_checks_per_run: 96
-
-# Price Drop：跌幅達這個 % 才標記為突然降價
-price_drop_alert_percent: 20
-
-# ntfy 推播行為（頻道名稱本身是機密，走 GitHub Secrets 不寫在這裡）
-notify_max_items: 10
-site_url: ""
-
-# Cheap Score
-history_days: 60
-min_score_samples: 20
-```
-
----
-
-## 💡 之後可以延伸的方向
-- 把 Price Drop 通知也接上 Telegram / Discord，多一個備援管道
-- 依季節性（連假前後）動態調整搜尋頻率權重
-- 增加更多目的地或改成多出發地（目前僅 TPE 單一出發地）
