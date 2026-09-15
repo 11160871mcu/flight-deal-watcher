@@ -1,28 +1,75 @@
 {
-  "version": 6,
+  "version": 7,
   "grid_signature": "2a172851f8b7277c220a",
-  "epoch_date": "2026-09-14",
   "near_cursor_by_route": {
-    "TPE|NRT": 60,
-    "TPE|HND": 60,
-    "TPE|KIX": 60,
-    "TPE|FUK": 60,
-    "TPE|CTS": 60,
-    "TPE|OKA": 60,
-    "TPE|ICN": 60,
-    "TPE|PUS": 60
+    "TPE|NRT": {
+      "date": "2026-09-15",
+      "stay_index": 6
+    },
+    "TPE|HND": {
+      "date": "2026-09-15",
+      "stay_index": 6
+    },
+    "TPE|KIX": {
+      "date": "2026-09-15",
+      "stay_index": 6
+    },
+    "TPE|FUK": {
+      "date": "2026-09-15",
+      "stay_index": 6
+    },
+    "TPE|CTS": {
+      "date": "2026-09-15",
+      "stay_index": 6
+    },
+    "TPE|OKA": {
+      "date": "2026-09-15",
+      "stay_index": 6
+    },
+    "TPE|ICN": {
+      "date": "2026-09-15",
+      "stay_index": 6
+    },
+    "TPE|PUS": {
+      "date": "2026-09-15",
+      "stay_index": 6
+    }
   },
   "annual_cursor_by_route": {
-    "TPE|NRT": 126,
-    "TPE|HND": 126,
-    "TPE|KIX": 126,
-    "TPE|FUK": 126,
-    "TPE|CTS": 126,
-    "TPE|OKA": 126,
-    "TPE|ICN": 126,
-    "TPE|PUS": 126
+    "TPE|NRT": {
+      "date": "2026-09-16",
+      "stay_index": 7
+    },
+    "TPE|HND": {
+      "date": "2026-09-16",
+      "stay_index": 7
+    },
+    "TPE|KIX": {
+      "date": "2026-09-16",
+      "stay_index": 7
+    },
+    "TPE|FUK": {
+      "date": "2026-09-16",
+      "stay_index": 7
+    },
+    "TPE|CTS": {
+      "date": "2026-09-16",
+      "stay_index": 7
+    },
+    "TPE|OKA": {
+      "date": "2026-09-16",
+      "stay_index": 7
+    },
+    "TPE|ICN": {
+      "date": "2026-09-16",
+      "stay_index": 7
+    },
+    "TPE|PUS": {
+      "date": "2026-09-16",
+      "stay_index": 7
+    }
   },
   "near_rotation": 0,
   "annual_rotation": 0,
-  "total_attempts": 1440
+  "total_attempts": 144
 }
