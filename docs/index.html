@@ -826,10 +826,10 @@ h1{
         <div id="summaryDatesBox" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; line-height:1.8;"></div>
         <div id="summaryUpdatedBox" style="margin-top:8px; color:var(--muted); font-size:11px;"></div>
 
-        <!-- 新增：掃描進度，數字只會增加，可用來驗證真的有在往前掃 -->
+        <!-- 掃描進度：直接顯示游標目前掃到哪一天，只會往前，不用心算 -->
         <div id="scanProgressBox" style="margin-top:8px; color:var(--muted); font-size:11px;"></div>
 
-        <!-- 新增：最下面也能收起篩選條件，不用滑到最上面 -->
+        <!-- 最下面也能收起篩選條件，不用滑到最上面 -->
         <div class="filters-bottom-toggle">
           <button id="collapseFiltersBottom" class="reset" type="button">↑ 收起篩選條件</button>
         </div>
@@ -1475,9 +1475,13 @@ async function load(){
 
     if(DATA.scan_progress){
       const sp=DATA.scan_progress;
-      const nearLaps=Number(sp.near_laps_completed_avg||0).toFixed(2);
-      const annualLaps=Number(sp.annual_laps_completed_avg||0).toFixed(2);
-      $("scanProgressBox").textContent=`📡 掃描進度（固定起始日 ${safe(sp.epoch_date)}，此數字只會增加不會歸零，可用來確認系統真的有持續往前掃）：近期軌已繞 ${nearLaps} 圈 · 全年軌已繞 ${annualLaps} 圈`;
+      const nearRange = sp.near_cursor_min_date===sp.near_cursor_max_date
+        ? safe(sp.near_cursor_min_date)
+        : `${safe(sp.near_cursor_min_date)} ~ ${safe(sp.near_cursor_max_date)}`;
+      const annualRange = sp.annual_cursor_min_date===sp.annual_cursor_max_date
+        ? safe(sp.annual_cursor_min_date)
+        : `${safe(sp.annual_cursor_min_date)} ~ ${safe(sp.annual_cursor_max_date)}`;
+      $("scanProgressBox").textContent=`📡 掃描進度（直接對照日期，確認真的有持續往前走）：近期軌各航線目前掃到 ${nearRange} · 全年軌各航線目前掃到 ${annualRange}`;
     }
 
     applyFilters();

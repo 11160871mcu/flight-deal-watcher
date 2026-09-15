@@ -48,8 +48,7 @@ HISTORY_FIELDS = [
     "checked_at",
 ]
 
-# 通知用的機場中文名，跟 index.html 裡的 AIRPORTS 對照表一致，
-# 讓 ntfy 通知跟網頁卡片看起來是同一套語言，不用自己翻譯機場代碼。
+# 通知 / 各種顯示用的機場中文名，跟 index.html 裡的 AIRPORTS 對照表一致。
 AIRPORT_NAMES = {
     "TPE": "台北桃園",
     "NRT": "東京成田",
@@ -96,6 +95,8 @@ def route_key(origin: str, destination: str) -> str:
 
 # ============================================================
 # STATE SIGNATURE
+# 只要目的地、天數範圍、艙等…這些搜尋條件變過，舊游標的意義就
+# 不成立了，直接重新開始一輪。
 # ============================================================
 
 def signature(cfg: dict[str, Any]) -> str:
@@ -114,12 +115,20 @@ def signature(cfg: dict[str, Any]) -> str:
 
 
 # ============================================================
-# 方案 B：固定起始日（epoch）的游標系統
+# 方案 C：游標直接記錄「實際日期 + 第幾種停留天數」
 #
-# epoch_date 只在第一次建立 state 時寫入一次，之後永遠不變。
-# 每個 (day_offset, stay) 組合在虛擬清單裡的 index 只跟 epoch_date
-# 有關，不會因為「今天」往前推進而被重新洗牌。游標只會累加，永遠
-# 不會被按天數往回扣分，也不會因為漏跑一輪而受罰。
+# 跟舊的方案 B（固定 epoch、用整數 index 換算日期）不同，這次
+# 游標本身就是一個真正的日期字串，寫在 state.json 裡打開來就
+# 能直接看懂「現在掃到哪一天」，不需要任何額外換算。
+#
+# 規則單純到不會有位移補償的 bug：
+#   - 游標日期 < 今天 -> 直接跳到今天（過期日期沒有意義，跳過
+#     不扣分）
+#   - 游標日期 > 搜尋視窗尾端 -> 繞回視窗開頭（今天），因為視窗
+#     尾端本身就是「今天 + 90 天 / 今天 + 12 個月」，每次執行都
+#     用當下的「今天」重新計算，所以搜尋範圍永遠是動態的、真正
+#     的「未來一年」，不會被寫死。
+#   - 其餘情況：照順序往下一個 (日期, 停留天數) 前進。
 # ============================================================
 
 def new_state(
@@ -129,15 +138,36 @@ def new_state(
 ) -> dict[str, Any]:
 
     return {
-        "version": 6,
+        "version": 7,
         "grid_signature": signature(cfg),
-        "epoch_date": today.isoformat(),
-        "near_cursor_by_route": {route: 0 for route in routes},
-        "annual_cursor_by_route": {route: 0 for route in routes},
+        "near_cursor_by_route": {
+            route: {"date": today.isoformat(), "stay_index": 0}
+            for route in routes
+        },
+        "annual_cursor_by_route": {
+            route: {"date": today.isoformat(), "stay_index": 0}
+            for route in routes
+        },
         "near_rotation": 0,
         "annual_rotation": 0,
         "total_attempts": 0,
     }
+
+
+def normalize_cursor(raw: Any, today: dt.date) -> dict[str, Any]:
+    """確保游標欄位是合法的 {date, stay_index}，格式壞掉就視為
+    從今天重新開始（不會整個 state 重置，只有這一條航線受影響）。
+    """
+
+    if isinstance(raw, dict) and "date" in raw:
+        try:
+            dt.date.fromisoformat(str(raw["date"]))
+            stay_index = int(raw.get("stay_index", 0))
+            return {"date": str(raw["date"]), "stay_index": max(0, stay_index)}
+        except Exception:
+            pass
+
+    return {"date": today.isoformat(), "stay_index": 0}
 
 
 def load_state(
@@ -145,114 +175,40 @@ def load_state(
     path: Path,
     today: dt.date,
     routes: list[str],
-) -> tuple[dict[str, Any], bool]:
-    """
-    回傳 (state, was_reset)。
-    was_reset 代表這次是「全新建立 / 因版本或搜尋條件不符而重置」的
-    state，讓 main() 知道要不要嘗試用既有 history.csv 幫游標抓一個
-    比較好的起跑點（bootstrap），避免升版後把已經查過的近期日期
-    整批重新掃一輪，讓人誤以為「游標卡住沒有前進」。
-    """
+) -> dict[str, Any]:
 
     fresh = new_state(cfg, today, routes)
 
     if not path.exists():
-        return fresh, True
+        print("  state.json 不存在，從今天開始建立全新游標。")
+        return fresh
 
     try:
         state = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
-        return fresh, True
+        print("  state.json 損毀，從今天開始建立全新游標。")
+        return fresh
 
-    if state.get("version") != 6 or state.get("grid_signature") != signature(cfg):
-        return fresh, True
-
-    try:
-        epoch_date = dt.date.fromisoformat(
-            state.get("epoch_date", today.isoformat())
-        )
-    except Exception:
-        epoch_date = today
-
-    state["epoch_date"] = epoch_date.isoformat()
+    if state.get("version") != 7 or state.get("grid_signature") != signature(cfg):
+        print("  state.json 版本或搜尋條件不符，從今天開始建立全新游標。")
+        return fresh
 
     for state_name in ("near_cursor_by_route", "annual_cursor_by_route"):
         state.setdefault(state_name, {})
         for route in routes:
-            state[state_name].setdefault(route, 0)
+            state[state_name][route] = normalize_cursor(
+                state[state_name].get(route), today
+            )
 
     state.setdefault("near_rotation", 0)
     state.setdefault("annual_rotation", 0)
     state.setdefault("total_attempts", 0)
 
-    return state, False
-
-
-def bootstrap_cursors_from_history(
-    cfg: dict[str, Any],
-    state: dict[str, Any],
-    history_rows: list[dict[str, Any]],
-    routes: list[str],
-    epoch_date: dt.date,
-    near_end: dt.date,
-    annual_end: dt.date,
-) -> None:
-    """
-    只在『state.json 剛被升版 / 重置』的那一次執行。
-
-    利用既有 history.csv 裡「這條航線目前已經查過的最遠出發日」，
-    幫新的固定 epoch 游標抓一個合理的起跑點，這樣升版之後不會把
-    已經查過的近期日期整批重新掃一輪，才不會讓使用者誤以為『游標
-    好像卡住沒有前進』。
-
-    就算估計得不夠精準也沒關係——之後游標一樣只增不減，會繼續
-    照原本的規則往前走，不會漏天，也不會被扣分，這裡純粹是避免
-    『重複做白工』而已。
-    """
-
-    stay_list = stays(cfg)
-    n = len(stay_list)
-
-    if n <= 0:
-        return
-
-    for route in routes:
-
-        origin, destination = route.split("|")
-
-        near_max_offset = -1
-        annual_max_offset = -1
-
-        for row in history_rows:
-
-            if row.get("origin") != origin or row.get("destination") != destination:
-                continue
-
-            try:
-                departure = dt.date.fromisoformat(str(row["departure_date"]))
-            except Exception:
-                continue
-
-            if departure < epoch_date:
-                continue
-
-            offset = (departure - epoch_date).days
-
-            if departure <= near_end and offset > near_max_offset:
-                near_max_offset = offset
-
-            if departure <= annual_end and offset > annual_max_offset:
-                annual_max_offset = offset
-
-        if near_max_offset >= 0:
-            state["near_cursor_by_route"][route] = (near_max_offset + 1) * n
-
-        if annual_max_offset >= 0:
-            state["annual_cursor_by_route"][route] = (annual_max_offset + 1) * n
+    return state
 
 
 # ============================================================
-# FAIR QUOTA
+# FAIR QUOTA（各目的地公平配額，跟游標設計無關，維持原邏輯）
 # ============================================================
 
 def fair_quotas(
@@ -273,20 +229,19 @@ def fair_quotas(
 
 
 # ============================================================
-# 方案 B：從固定 epoch 起算的虛擬清單裡挑任務
+# 方案 C：從目前游標日期往後挑任務
 # ============================================================
 
-def pick_from_epoch_pool(
+def pick_from_cursor(
     cfg: dict[str, Any],
     route: str,
-    cursor: int,
+    cursor: dict[str, Any],
     quota: int,
-    epoch_date: dt.date,
     today: dt.date,
     window_end: dt.date,
     used: set[tuple[str, str, str, str, int]],
     track: str,
-) -> tuple[list[dict[str, Any]], int]:
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
 
     if quota <= 0:
         return [], cursor
@@ -294,61 +249,76 @@ def pick_from_epoch_pool(
     stay_list = stays(cfg)
     n = len(stay_list)
 
-    total_days = (window_end - epoch_date).days + 1
-
-    if total_days <= 0 or n <= 0:
+    if n <= 0:
         return [], cursor
-
-    pool_len = total_days * n
 
     origin, destination = route.split("|")
 
+    try:
+        date = dt.date.fromisoformat(cursor.get("date", today.isoformat()))
+    except Exception:
+        date = today
+
+    stay_idx = int(cursor.get("stay_index", 0)) % n
+
+    # 游標停在過去的日期 -> 沒有意義，直接跳到今天，不扣分也不用
+    # 一天一天往前爬。
+    if date < today:
+        date = today
+        stay_idx = 0
+
     chosen: list[dict[str, Any]] = []
 
-    idx = cursor % pool_len
+    # 安全上限：最多繞視窗一整圈再多一點點緩衝，避免理論上的
+    # 無窮迴圈（例如某條航線的組合全部都被同一輪的另一軌道占用）。
+    total_days = max(1, (window_end - today).days + 1)
+    max_scan = total_days * n + n
+
     scanned = 0
 
-    while len(chosen) < quota and scanned < pool_len:
+    while len(chosen) < quota and scanned < max_scan:
 
-        day_offset, stay_idx = divmod(idx, n)
-        departure = epoch_date + dt.timedelta(days=day_offset)
-
-        idx = (idx + 1) % pool_len
-        scanned += 1
-
-        # 出發日已經過去，這組永遠不會再有效，直接永久跳過，
-        # 游標照樣往前走，不會回頭重新檢查這組。
-        if departure < today or departure > window_end:
-            continue
+        # 超過視窗尾端 -> 繞回視窗開頭（今天）重新開始一輪。
+        # window_end 每次執行都是用當下的「今天」重新算出來的，
+        # 所以這裡繞回去，搜尋範圍依然是動態的未來一年，不會被
+        # 寫死在某個固定日期。
+        if date > window_end:
+            date = today
+            stay_idx = 0
 
         stay = stay_list[stay_idx]
-        return_date = departure + dt.timedelta(days=stay)
+        return_date = date + dt.timedelta(days=stay)
 
         key = (
             origin,
             destination,
-            departure.isoformat(),
+            date.isoformat(),
             return_date.isoformat(),
             stay,
         )
 
-        if key in used:
-            continue
+        if key not in used:
+            used.add(key)
+            chosen.append(
+                {
+                    "origin": origin,
+                    "destination": destination,
+                    "departure_date": date.isoformat(),
+                    "return_date": return_date.isoformat(),
+                    "stay_days": stay,
+                    "track": track,
+                }
+            )
 
-        used.add(key)
+        # 指標往下一格前進：先換停留天數，換完一輪再往下一天。
+        stay_idx += 1
+        if stay_idx >= n:
+            stay_idx = 0
+            date = date + dt.timedelta(days=1)
 
-        chosen.append(
-            {
-                "origin": origin,
-                "destination": destination,
-                "departure_date": departure.isoformat(),
-                "return_date": return_date.isoformat(),
-                "stay_days": stay,
-                "track": track,
-            }
-        )
+        scanned += 1
 
-    new_cursor = cursor + scanned
+    new_cursor = {"date": date.isoformat(), "stay_index": stay_idx}
     return chosen, new_cursor
 
 
@@ -361,8 +331,6 @@ def build_dual_track_batch(
     state: dict[str, Any],
     today: dt.date,
 ):
-
-    epoch_date = dt.date.fromisoformat(state["epoch_date"])
 
     annual_end = today + relativedelta(
         months=int(cfg.get("search_months_ahead", 12))
@@ -400,18 +368,18 @@ def build_dual_track_batch(
 
     for route in routes:
 
-        near_cursor = int(state["near_cursor_by_route"].get(route, 0))
-        chosen, new_cursor = pick_from_epoch_pool(
+        near_cursor = state["near_cursor_by_route"][route]
+        chosen, new_cursor = pick_from_cursor(
             cfg, route, near_cursor, near_quota[route],
-            epoch_date, today, near_end, used, "near",
+            today, near_end, used, "near",
         )
         near_selected[route] = chosen
         state["near_cursor_by_route"][route] = new_cursor
 
-        annual_cursor = int(state["annual_cursor_by_route"].get(route, 0))
-        chosen, new_cursor = pick_from_epoch_pool(
+        annual_cursor = state["annual_cursor_by_route"][route]
+        chosen, new_cursor = pick_from_cursor(
             cfg, route, annual_cursor, annual_quota[route],
-            epoch_date, today, annual_end, used, "annual",
+            today, annual_end, used, "annual",
         )
         annual_selected[route] = chosen
         state["annual_cursor_by_route"][route] = new_cursor
@@ -923,7 +891,7 @@ def save_json(path: Path, data: Any):
 
 
 # ============================================================
-# NTFY 推播（Price Drop 專用，且要「真的便宜」才通知）
+# NTFY 推播（只通知「真的降價 + 真的便宜」的組合，排版跟網頁一致）
 # ============================================================
 
 NTFY_SERVER = "https://ntfy.sh"
@@ -938,35 +906,33 @@ def format_date_range(departure: str, return_date: str, stay_days: int) -> str:
     try:
         d = dt.date.fromisoformat(departure)
         r = dt.date.fromisoformat(return_date)
-        return f"{d.month}/{d.day} ~ {r.month}/{r.day}（停留{stay_days}天）"
+        return f"{d.month}/{d.day} ~ {r.month}/{r.day}（停留 {stay_days} 天）"
     except Exception:
-        return f"{departure} ~ {return_date}（停留{stay_days}天）"
+        return f"{departure} ~ {return_date}（停留 {stay_days} 天）"
 
 
 def format_drop_line(deal: dict[str, Any]) -> str:
+    """跟網頁卡片同樣的資訊、同樣的口吻，一段一行，不擠在一起。"""
 
     route = f"{airport_label(deal['origin'])} → {airport_label(deal['destination'])}"
-
     dates = format_date_range(
         deal["departure_date"], deal["return_date"], deal["stay_days"]
     )
 
     price = int(deal["price"])
-
-    drop_percent = deal.get("price_drop_percent")
-    drop_text = f"剛降價 {drop_percent}%" if drop_percent is not None else ""
-
     previous_price = deal.get("previous_price")
-    previous_text = f"（原 NT${previous_price:,}）" if previous_price else ""
-
+    drop_percent = deal.get("price_drop_percent")
     score = deal.get("cheap_score")
-    score_text = f" · 便宜指數 {score}/100" if score is not None else ""
 
-    return (
-        f"{route}\n"
-        f"{dates}\n"
-        f"NT${price:,} {drop_text}{previous_text}{score_text}"
-    )
+    lines = [route, dates, f"現在 NT${price:,}"]
+
+    if previous_price and drop_percent is not None:
+        lines.append(f"原價 NT${previous_price:,}，降了 {drop_percent}%")
+
+    if score is not None:
+        lines.append(f"便宜指數 {score}/100")
+
+    return "\n".join(lines)
 
 
 def send_ntfy_notification(deals: list[dict[str, Any]], cfg: dict[str, Any]) -> None:
@@ -990,9 +956,7 @@ def send_ntfy_notification(deals: list[dict[str, Any]], cfg: dict[str, Any]) -> 
     ]
 
     if not drops:
-        print(
-            "  本輪沒有『既降價、又真的划算』的組合（可能有降價但仍偏貴），不發送推播"
-        )
+        print("  本輪沒有『既降價、又真的划算』的組合，不發送推播")
         return
 
     drops.sort(key=lambda deal: -(deal.get("price_drop_percent") or 0))
@@ -1001,16 +965,14 @@ def send_ntfy_notification(deals: list[dict[str, Any]], cfg: dict[str, Any]) -> 
     shown = drops[:max_items]
     remaining = len(drops) - len(shown)
 
-    lines = [format_drop_line(deal) for deal in shown]
-
-    message = "\n\n".join(lines)
+    message = "\n\n".join(format_drop_line(deal) for deal in shown)
 
     if remaining > 0:
         message += f"\n\n...等其餘 {remaining} 筆划算的降價"
 
     payload: dict[str, Any] = {
         "topic": topic,
-        "title": f"🔥 偵測到 {len(drops)} 個真正划算的降價航班",
+        "title": f"🔥 偵測到 {len(drops)} 個又降價又划算的機票",
         "message": message,
         "tags": ["airplane", "moneybag"],
         "priority": 4,
@@ -1050,70 +1012,37 @@ def main():
         for destination in cfg["destinations"]
     ]
 
-    state, was_reset = load_state(cfg, state_path, today, routes)
-
-    # 升版 / 重置後，用既有 history.csv 幫游標抓一個合理的起跑點，
-    # 避免把已經查過的近期日期整批重新掃一輪，讓人誤以為卡住了。
-    if was_reset:
-
-        history_for_bootstrap = load_history(history_path)
-
-        if history_for_bootstrap:
-
-            epoch_date = dt.date.fromisoformat(state["epoch_date"])
-
-            annual_end_for_bootstrap = today + relativedelta(
-                months=int(cfg.get("search_months_ahead", 12))
-            )
-            near_end_for_bootstrap = min(
-                annual_end_for_bootstrap,
-                today + dt.timedelta(days=int(cfg.get("near_term_days", 90))),
-            )
-
-            bootstrap_cursors_from_history(
-                cfg, state, history_for_bootstrap, routes,
-                epoch_date, near_end_for_bootstrap, annual_end_for_bootstrap,
-            )
-
-            print(
-                "  偵測到 state.json 升版重置，已利用既有 history.csv "
-                "幫游標抓起跑點，避免重新掃描已查過的近期日期。"
-            )
-        else:
-            print("  這是全新環境（沒有 history.csv 可用），游標從頭開始累積。")
+    state = load_state(cfg, state_path, today, routes)
 
     (
         batch, near_quota, annual_quota,
         total_grid, annual_end, near_end,
     ) = build_dual_track_batch(cfg, state, today)
 
-    epoch_date = dt.date.fromisoformat(state["epoch_date"])
-    n_stay = len(stays(cfg))
-
-    near_pool_size = ((near_end - epoch_date).days + 1) * n_stay
-    annual_pool_size = ((annual_end - epoch_date).days + 1) * n_stay
-
-    near_cursor_avg = sum(state["near_cursor_by_route"].values()) / len(routes)
-    annual_cursor_avg = sum(state["annual_cursor_by_route"].values()) / len(routes)
+    near_dates = [
+        dt.date.fromisoformat(v["date"])
+        for v in state["near_cursor_by_route"].values()
+    ]
+    annual_dates = [
+        dt.date.fromisoformat(v["date"])
+        for v in state["annual_cursor_by_route"].values()
+    ]
 
     scan_progress = {
-        "epoch_date": state["epoch_date"],
-        "near_pool_size_per_route": near_pool_size,
-        "annual_pool_size_per_route": annual_pool_size,
-        "near_cursor_avg": round(near_cursor_avg, 1),
-        "annual_cursor_avg": round(annual_cursor_avg, 1),
-        "near_laps_completed_avg": (
-            round(near_cursor_avg / near_pool_size, 3) if near_pool_size else 0
-        ),
-        "annual_laps_completed_avg": (
-            round(annual_cursor_avg / annual_pool_size, 3) if annual_pool_size else 0
-        ),
-        "near_cursor_by_route": dict(state["near_cursor_by_route"]),
-        "annual_cursor_by_route": dict(state["annual_cursor_by_route"]),
+        "near_cursor_min_date": min(near_dates).isoformat() if near_dates else None,
+        "near_cursor_max_date": max(near_dates).isoformat() if near_dates else None,
+        "annual_cursor_min_date": min(annual_dates).isoformat() if annual_dates else None,
+        "annual_cursor_max_date": max(annual_dates).isoformat() if annual_dates else None,
+        "near_cursor_by_route": {
+            r: v["date"] for r, v in state["near_cursor_by_route"].items()
+        },
+        "annual_cursor_by_route": {
+            r: v["date"] for r, v in state["annual_cursor_by_route"].items()
+        },
     }
 
-    print("=== Flight Deal Watcher / 雙軌搜尋（方案 B：固定 epoch 游標） ===")
-    print(f"epoch_date（固定起始日）：{state['epoch_date']}")
+    print("=== Flight Deal Watcher / 雙軌搜尋（方案 C：日期游標，動態未來一年） ===")
+    print(f"今天：{today}")
     print(f"全年：{today} -> {annual_end}")
     print(f"近期：{today} -> {near_end}")
     print(f"停留：{min(stays(cfg))}～{max(stays(cfg))} 天")
@@ -1123,9 +1052,9 @@ def main():
         f"{sum(near_quota.values())} + 全年 {sum(annual_quota.values())} = {len(batch)} 組"
     )
     print(
-        "游標進度（只會增加，可用來驗證真的有在往前掃）：\n"
-        f"  近期軌已繞 {scan_progress['near_laps_completed_avg']} 圈\n"
-        f"  全年軌已繞 {scan_progress['annual_laps_completed_avg']} 圈"
+        "游標目前位置（可直接對照日期驗證有沒有往前走）：\n"
+        f"  近期軌：{scan_progress['near_cursor_min_date']} ~ {scan_progress['near_cursor_max_date']}\n"
+        f"  全年軌：{scan_progress['annual_cursor_min_date']} ~ {scan_progress['annual_cursor_max_date']}"
     )
 
     print("各目的地配額：")
