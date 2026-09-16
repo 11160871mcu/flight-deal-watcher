@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-15T21:26:36+00:00",
+  "generated_at": "2026-09-16T03:48:06+00:00",
   "search_start_date": "2026-09-16",
   "search_end_date": "2027-09-16",
   "near_term_end_date": "2026-12-15",
@@ -24,7 +24,7 @@
   "attempted_this_run": 144,
   "near_checks_planned": 48,
   "annual_checks_planned": 96,
-  "total_checks_so_far": 720,
+  "total_checks_so_far": 864,
   "total_combos_in_grid": 32208,
   "route_near_quota": {
     "TPE|NRT": 6,
@@ -47,29 +47,29 @@
     "TPE|PUS": 12
   },
   "scan_progress": {
-    "near_cursor_min_date": "2026-09-17",
-    "near_cursor_max_date": "2026-09-17",
-    "annual_cursor_min_date": "2026-09-21",
-    "annual_cursor_max_date": "2026-09-21",
+    "near_cursor_min_date": "2026-09-18",
+    "near_cursor_max_date": "2026-09-18",
+    "annual_cursor_min_date": "2026-09-22",
+    "annual_cursor_max_date": "2026-09-22",
     "near_cursor_by_route": {
-      "TPE|NRT": "2026-09-17",
-      "TPE|HND": "2026-09-17",
-      "TPE|KIX": "2026-09-17",
-      "TPE|FUK": "2026-09-17",
-      "TPE|CTS": "2026-09-17",
-      "TPE|OKA": "2026-09-17",
-      "TPE|ICN": "2026-09-17",
-      "TPE|PUS": "2026-09-17"
+      "TPE|NRT": "2026-09-18",
+      "TPE|HND": "2026-09-18",
+      "TPE|KIX": "2026-09-18",
+      "TPE|FUK": "2026-09-18",
+      "TPE|CTS": "2026-09-18",
+      "TPE|OKA": "2026-09-18",
+      "TPE|ICN": "2026-09-18",
+      "TPE|PUS": "2026-09-18"
     },
     "annual_cursor_by_route": {
-      "TPE|NRT": "2026-09-21",
-      "TPE|HND": "2026-09-21",
-      "TPE|KIX": "2026-09-21",
-      "TPE|FUK": "2026-09-21",
-      "TPE|CTS": "2026-09-21",
-      "TPE|OKA": "2026-09-21",
-      "TPE|ICN": "2026-09-21",
-      "TPE|PUS": "2026-09-21"
+      "TPE|NRT": "2026-09-22",
+      "TPE|HND": "2026-09-22",
+      "TPE|KIX": "2026-09-22",
+      "TPE|FUK": "2026-09-22",
+      "TPE|CTS": "2026-09-22",
+      "TPE|OKA": "2026-09-22",
+      "TPE|ICN": "2026-09-22",
+      "TPE|PUS": "2026-09-22"
     }
   },
   "deal_count": 1858,
