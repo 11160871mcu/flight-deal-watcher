@@ -11,27 +11,17 @@ destinations:
   - ICN
   - PUS
 
-# 以台灣日期判斷「今天」
 timezone: Asia/Taipei
 
-# 永遠搜尋今天開始往後 12 個月
 search_months_ahead: 12
-
-# 雙軌中的近期高頻範圍
 near_term_days: 90
 
-# 每次近期軌搜尋數
-# 8 個目的地 -> 每個目的地 18 組
-# 因為實際執行頻率偏低（久久才跑一次），把每輪配額調高，
-# 讓資料更新速度不要太依賴「多久觸發一次」。
-# 上限受 GitHub Actions timeout-minutes: 180 限制，
-# 如果實測發現常跑到接近上限，請往下調這個數字。
-near_checks_per_run: 144
-
-# 每次全年軌搜尋數
-# 8 個目的地 -> 每個目的地 36 組
-# 同上，配額調高以增加單次執行的資料量。
-annual_checks_per_run: 288
+# 每輪配額：這次從 144/288 調降回 108/216，是因為上一次調高到
+# 432 組/輪之後，短時間內大量請求觸發了 Google Flights 的暫時性
+# 限制，導致那一輪後半段全部查詢失敗，資料整批消失。先降回這個
+# 數字，配合下面新增的連續失敗保護機制，觀察穩定後再視情況調整。
+near_checks_per_run: 108
+annual_checks_per_run: 216
 
 stay_duration:
   min_days: 5
@@ -44,43 +34,31 @@ infants_in_seat: 0
 infants_on_lap: 0
 
 seat: economy
-
-# 僅直飛
 direct_only: true
 
-# 第一次有價格但抓不到航空公司/時間時，再試一次
 metadata_retry_count: 1
 metadata_retry_delay_seconds: 1.0
 
-# 每個日期組合之間稍微停一下
-request_delay_seconds: 0.3
+# 每筆查詢間隔，從 0.3 拉長到 0.8 秒，降低短時間高頻請求觸發
+# 反爬蟲限制的機率。
+request_delay_seconds: 0.8
 
-# Price Drop 偵測：
-# 同一組出發日/回程日/停留天數，這次比上一次查到的價格
-# 跌幅達到這個百分比才標記為「突然降價」（跟 Cheap Score 是不同訊號）
+# 新增：連續失敗自動中止門檻。
+# 一旦同一輪裡連續失敗達到這個次數，判定為疑似被 Google Flights
+# 暫時限制/封鎖，立刻停止這一輪剩餘的查詢，並把游標精準地設回
+# 「實際真的有查詢到」的位置，避免游標虛報進度、資料整批消失
+# 卻毫無察覺。
+consecutive_failure_stop: 15
+
 price_drop_alert_percent: 20
-
-# 通知門檻：
-# Price Drop 只是跟「自己上一次」比，不代表現在真的便宜。
-# ntfy 通知除了要 price_drop 是 true，還要同時符合 Cheap Score
-# 達到這個分數以上，才會真的推播通知。
-# 對照網頁上的分級：90+ 超值／70~89 不錯／40~69 一般／<40 偏貴。
 notify_min_cheap_score: 70
 
-# ntfy.sh 推播設定
-# 注意：頻道名稱 NTFY_TOPIC 不寫在這裡，
-# 是機密資訊，改用 GitHub Secrets 帶進去（見 README 設定步驟）
-notify_max_items: 10   # 一次通知最多列出幾筆降價，避免內容太長
-site_url: ""            # 你的 GitHub Pages 網址，點通知會開這個網址；留空就不放連結
+notify_max_items: 10
+site_url: ""
 
-# Cheap Score 使用近期價格池
 history_days: 60
-
-# 少於這個數仍計算 Score，但標記為樣本較少
 min_score_samples: 20
 
-# latest.json 最多輸出幾筆
-# 0 = 不限制
 max_deals_to_publish: 3000
 
 data:

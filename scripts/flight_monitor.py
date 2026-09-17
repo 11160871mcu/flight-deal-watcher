@@ -48,7 +48,6 @@ HISTORY_FIELDS = [
     "checked_at",
 ]
 
-# 通知 / 各種顯示用的機場中文名，跟 index.html 裡的 AIRPORTS 對照表一致。
 AIRPORT_NAMES = {
     "TPE": "台北桃園",
     "NRT": "東京成田",
@@ -100,16 +99,11 @@ def deal_identity(
     return_date: str,
     stay_days: int,
 ) -> tuple[str, str, str, str, int]:
-    """一組航班的唯一識別：出發地/目的地/去程/回程/停留天數。
-    用來判斷『這組航班這一輪是不是真的有重新查過』。
-    """
     return (origin, destination, departure_date, return_date, int(stay_days))
 
 
 # ============================================================
 # STATE SIGNATURE
-# 只要目的地、天數範圍、艙等…這些搜尋條件變過，舊游標的意義就
-# 不成立了，直接重新開始一輪。
 # ============================================================
 
 def signature(cfg: dict[str, Any]) -> str:
@@ -128,19 +122,7 @@ def signature(cfg: dict[str, Any]) -> str:
 
 
 # ============================================================
-# 游標直接記錄「實際日期 + 第幾種停留天數」
-#
-# state.json 裡每條航線、每個軌道的游標，就是一個真正的日期字串，
-# 打開檔案就能直接看懂「現在掃到哪一天」，不需要任何額外換算。
-#
-# 規則單純：
-#   - 游標日期 < 今天 -> 直接跳到今天（過期日期沒有意義，跳過
-#     不扣分）
-#   - 游標日期 > 搜尋視窗尾端 -> 繞回視窗開頭（今天），因為視窗
-#     尾端本身就是「今天 + 90 天 / 今天 + 12 個月」，每次執行都
-#     用當下的「今天」重新計算，所以搜尋範圍永遠是動態的、真正
-#     的「未來一年」，不會被寫死。
-#   - 其餘情況：照順序往下一個 (日期, 停留天數) 前進。
+# 游標：直接記錄「實際日期 + 第幾種停留天數」
 # ============================================================
 
 def new_state(
@@ -167,9 +149,6 @@ def new_state(
 
 
 def normalize_cursor(raw: Any, today: dt.date) -> dict[str, Any]:
-    """確保游標欄位是合法的 {date, stay_index}，格式壞掉就視為
-    從今天重新開始（不會整個 state 重置，只有這一條航線受影響）。
-    """
 
     if isinstance(raw, dict) and "date" in raw:
         try:
@@ -220,7 +199,7 @@ def load_state(
 
 
 # ============================================================
-# FAIR QUOTA（各目的地公平配額）
+# FAIR QUOTA
 # ============================================================
 
 def fair_quotas(
@@ -242,6 +221,14 @@ def fair_quotas(
 
 # ============================================================
 # 從目前游標日期往後挑任務
+#
+# 重要修正：除了回傳「這一批選中的任務」跟「跑完整批後游標會停在
+# 哪」之外，這裡也回傳每一筆任務被選中『當下』的游標快照
+# (cursor_after)。如果這一輪執行到一半因為連續失敗而提前中止，
+# main() 會用這些快照，把游標精準地retreat 回「實際上真的有嘗試
+# 查詢」的那個位置，而不是繼續讓游標停在「本來計畫要查、但根本
+# 沒機會執行」的更遠位置。這樣游標才不會騙自己說已經查到很後面，
+# 但資料其實完全是空的。
 # ============================================================
 
 def pick_from_cursor(
@@ -253,16 +240,16 @@ def pick_from_cursor(
     window_end: dt.date,
     used: set[tuple[str, str, str, str, int]],
     track: str,
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
 
     if quota <= 0:
-        return [], cursor
+        return [], [], cursor
 
     stay_list = stays(cfg)
     n = len(stay_list)
 
     if n <= 0:
-        return [], cursor
+        return [], [], cursor
 
     origin, destination = route.split("|")
 
@@ -273,13 +260,12 @@ def pick_from_cursor(
 
     stay_idx = int(cursor.get("stay_index", 0)) % n
 
-    # 游標停在過去的日期 -> 沒有意義，直接跳到今天，不扣分也不用
-    # 一天一天往前爬。
     if date < today:
         date = today
         stay_idx = 0
 
     chosen: list[dict[str, Any]] = []
+    cursor_after: list[dict[str, Any]] = []
 
     total_days = max(1, (window_end - today).days + 1)
     max_scan = total_days * n + n
@@ -288,10 +274,6 @@ def pick_from_cursor(
 
     while len(chosen) < quota and scanned < max_scan:
 
-        # 超過視窗尾端 -> 繞回視窗開頭（今天）重新開始一輪。
-        # window_end 每次執行都是用當下的「今天」重新算出來的，
-        # 所以這裡繞回去，搜尋範圍依然是動態的未來一年，不會被
-        # 寫死在某個固定日期。
         if date > window_end:
             date = today
             stay_idx = 0
@@ -303,7 +285,8 @@ def pick_from_cursor(
             origin, destination, date.isoformat(), return_date.isoformat(), stay
         )
 
-        if key not in used:
+        will_append = key not in used
+        if will_append:
             used.add(key)
             chosen.append(
                 {
@@ -323,12 +306,22 @@ def pick_from_cursor(
 
         scanned += 1
 
+        if will_append:
+            # 這是「如果只做到剛剛這一筆」游標應該停在哪的快照
+            cursor_after.append({"date": date.isoformat(), "stay_index": stay_idx})
+
     new_cursor = {"date": date.isoformat(), "stay_index": stay_idx}
-    return chosen, new_cursor
+    return chosen, cursor_after, new_cursor
 
 
 # ============================================================
 # DUAL TRACK 批次
+#
+# 這裡不再直接把游標寫進 state（那樣一旦這一輪中途被迫中止，
+# 游標就會虛報進度）。改成先把「規劃結果」整理好回傳給 main()，
+# 包含每個 (route, track) 的原始起點游標、每一筆的快照、跟
+# 「跑完整批」時的最終游標，等 main() 真正執行完（或提前中止）
+# 之後，再依照「實際跑到第幾筆」去決定要採用哪個游標值。
 # ============================================================
 
 def build_dual_track_batch(
@@ -368,26 +361,41 @@ def build_dual_track_batch(
 
     used: set[tuple[str, str, str, str, int]] = set()
 
+    # plan[(route, track)] = {
+    #   "start_cursor": 這一輪開始前的游標,
+    #   "cursor_after": [每一筆選中任務對應的游標快照],
+    #   "final_cursor": 整批都跑完時最終會停在哪,
+    # }
+    plan: dict[tuple[str, str], dict[str, Any]] = {}
+
     near_selected: dict[str, list[dict[str, Any]]] = {}
     annual_selected: dict[str, list[dict[str, Any]]] = {}
 
     for route in routes:
 
-        near_cursor = state["near_cursor_by_route"][route]
-        chosen, new_cursor = pick_from_cursor(
-            cfg, route, near_cursor, near_quota[route],
+        near_start = dict(state["near_cursor_by_route"][route])
+        chosen, cursor_after, final_cursor = pick_from_cursor(
+            cfg, route, near_start, near_quota[route],
             today, near_end, used, "near",
         )
         near_selected[route] = chosen
-        state["near_cursor_by_route"][route] = new_cursor
+        plan[(route, "near")] = {
+            "start_cursor": near_start,
+            "cursor_after": cursor_after,
+            "final_cursor": final_cursor,
+        }
 
-        annual_cursor = state["annual_cursor_by_route"][route]
-        chosen, new_cursor = pick_from_cursor(
-            cfg, route, annual_cursor, annual_quota[route],
+        annual_start = dict(state["annual_cursor_by_route"][route])
+        chosen, cursor_after, final_cursor = pick_from_cursor(
+            cfg, route, annual_start, annual_quota[route],
             today, annual_end, used, "annual",
         )
         annual_selected[route] = chosen
-        state["annual_cursor_by_route"][route] = new_cursor
+        plan[(route, "annual")] = {
+            "start_cursor": annual_start,
+            "cursor_after": cursor_after,
+            "final_cursor": final_cursor,
+        }
 
     batch: list[dict[str, Any]] = []
 
@@ -409,7 +417,42 @@ def build_dual_track_batch(
         * len(stays(cfg))
     )
 
-    return batch, near_quota, annual_quota, total_grid, annual_end, near_end
+    return batch, plan, near_quota, annual_quota, total_grid, annual_end, near_end
+
+
+def commit_cursors(
+    state: dict[str, Any],
+    plan: dict[tuple[str, str], dict[str, Any]],
+    executed_batch: list[dict[str, Any]],
+) -> None:
+    """
+    根據『這一輪實際真正執行到的任務』，幫每個 (route, track) 決定
+    游標最終該停在哪裡。如果整批都順利跑完，這裡的結果會跟原本
+    plan 裡的 final_cursor 一致；如果中途被迫提前中止，這裡會讓
+    每個 (route, track) 的游標，精準地停在「最後一筆真的有被執行
+    到」的那個位置，不會虛報成『整批都做完了』。
+    """
+
+    executed_count: dict[tuple[str, str], int] = defaultdict(int)
+
+    for task in executed_batch:
+        route = route_key(task["origin"], task["destination"])
+        executed_count[(route, task["track"])] += 1
+
+    for (route, track), info in plan.items():
+
+        count = executed_count.get((route, track), 0)
+        cursor_after = info["cursor_after"]
+
+        if count <= 0:
+            new_cursor = info["start_cursor"]
+        elif count >= len(cursor_after):
+            new_cursor = info["final_cursor"]
+        else:
+            new_cursor = cursor_after[count - 1]
+
+        target_key = "near_cursor_by_route" if track == "near" else "annual_cursor_by_route"
+        state[target_key][route] = new_cursor
 
 
 # ============================================================
@@ -761,7 +804,7 @@ def latest_combos(history, cfg, today, annual_end):
 def build_latest(
     cfg, history, today, annual_end, near_end, state,
     total_grid, near_quota, annual_quota, run_success, attempted,
-    scan_progress,
+    scan_progress, aborted_early, executed_this_run,
 ):
 
     current, previous_price_map = latest_combos(history, cfg, today, annual_end)
@@ -870,6 +913,8 @@ def build_latest(
         "history_days": int(cfg.get("history_days", 60)),
         "checked_this_run": run_success,
         "attempted_this_run": attempted,
+        "executed_this_run": executed_this_run,
+        "aborted_early": aborted_early,
         "near_checks_planned": sum(near_quota.values()),
         "annual_checks_planned": sum(annual_quota.values()),
         "total_checks_so_far": int(state.get("total_attempts", 0)),
@@ -894,18 +939,6 @@ def save_json(path: Path, data: Any):
 
 # ============================================================
 # NTFY 推播
-#
-# 重要修正：只通知「這一輪真的有重新查到資料」的組合。
-#
-# latest.json 裡的 price_drop 是拿『整份歷史紀錄裡，這組航班最新
-# 兩筆資料』去比較算出來的，只要這組航班沒有被新資料覆蓋，這個
-# 判斷結果就會一直維持不變。如果通知邏輯只看 latest.json 裡
-# 「誰是 price_drop」，同一組航班只要一直沒被重新查過，就會一輪
-# 又一輪被重複挑出來通知，即使根本沒有發生任何新事件。
-#
-# 修正做法：main() 執行完會知道「這一輪實際上查了哪些組合」
-# （fresh_keys），通知只從這個集合裡篩選，確保每組航班只有在
-# 「真的重新查到、而且判定為降價」的那一輪才會通知一次。
 # ============================================================
 
 NTFY_SERVER = "https://ntfy.sh"
@@ -926,7 +959,6 @@ def format_date_range(departure: str, return_date: str, stay_days: int) -> str:
 
 
 def format_drop_line(deal: dict[str, Any]) -> str:
-    """跟網頁卡片同樣的資訊、同樣的口吻，一段一行，不擠在一起。"""
 
     route = f"{airport_label(deal['origin'])} → {airport_label(deal['destination'])}"
     dates = format_date_range(
@@ -975,9 +1007,7 @@ def send_ntfy_notification(
     ]
 
     if not drops:
-        print(
-            "  本輪沒有『這輪剛查到、又降價、又真的划算』的組合，不發送推播"
-        )
+        print("  本輪沒有『這輪剛查到、又降價、又真的划算』的組合，不發送推播")
         return
 
     drops.sort(key=lambda deal: -(deal.get("price_drop_percent") or 0))
@@ -1036,9 +1066,93 @@ def main():
     state = load_state(cfg, state_path, today, routes)
 
     (
-        batch, near_quota, annual_quota,
+        batch, plan, near_quota, annual_quota,
         total_grid, annual_end, near_end,
     ) = build_dual_track_batch(cfg, state, today)
+
+    print("=== Flight Deal Watcher / 雙軌搜尋（日期游標，含連續失敗保護） ===")
+    print(f"今天：{today}")
+    print(f"全年：{today} -> {annual_end}")
+    print(f"近期：{today} -> {near_end}")
+    print(f"停留：{min(stays(cfg))}～{max(stays(cfg))} 天")
+    print(f"全年網格（此刻有效組合數）：{total_grid:,} 組")
+    print(
+        "本輪計畫：近期 "
+        f"{sum(near_quota.values())} + 全年 {sum(annual_quota.values())} = {len(batch)} 組"
+    )
+
+    print("各目的地配額：")
+    for route in routes:
+        print(
+            "  " + route.replace("|", " -> ")
+            + "：近期 " + str(near_quota[route])
+            + " / 全年 " + str(annual_quota[route])
+        )
+
+    successful_rows = []
+    executed_batch: list[dict[str, Any]] = []
+
+    delay = float(cfg.get("request_delay_seconds", 0.0))
+
+    # 連續失敗自動中止：一旦連續失敗次數達到門檻，判定為「疑似被
+    # Google Flights 暫時限制/封鎖」，立刻停止這一輪剩下的查詢，
+    # 避免對著已經被擋的服務繼續送出更多注定失敗的請求，也避免
+    # 讓游標虛報成『整批都查完了』。
+    consecutive_failure_stop = int(cfg.get("consecutive_failure_stop", 15))
+    consecutive_failures = 0
+    aborted_early = False
+
+    for index, task in enumerate(batch, 1):
+
+        print(
+            f"[{index}/{len(batch)}] {task['track']:6s} "
+            f"{task['origin']}->{task['destination']} "
+            f"{task['departure_date']}~{task['return_date']} {task['stay_days']}d"
+        )
+
+        row = search_one(task, cfg)
+
+        state["total_attempts"] = int(state.get("total_attempts", 0)) + 1
+        executed_batch.append(task)
+
+        if row:
+            successful_rows.append(row)
+            consecutive_failures = 0
+            print(
+                "  OK "
+                f"NT${row['price']:,} / options="
+                f"{len(parse_options(row['flight_options_json']))}"
+            )
+        else:
+            consecutive_failures += 1
+            print(f"  NO VALID RESULT（連續失敗 {consecutive_failures} 次）")
+
+        if consecutive_failures >= consecutive_failure_stop:
+            aborted_early = True
+            print(
+                f"  ⚠️ 連續失敗達到 {consecutive_failure_stop} 次，"
+                "判定為疑似遭遇暫時限制/封鎖，提前中止本輪剩餘查詢。"
+            )
+            break
+
+        if delay > 0 and index < len(batch):
+            time.sleep(delay)
+
+    # 依照『這一輪實際真正執行到的任務』，把游標精準地設到正確位置。
+    # 就算中途提前中止，也不會有任何一條航線的游標被虛報成『查完了』。
+    commit_cursors(state, plan, executed_batch)
+
+    fresh_keys = {
+        deal_identity(
+            row["origin"], row["destination"],
+            row["departure_date"], row["return_date"], row["stay_days"],
+        )
+        for row in successful_rows
+    }
+
+    append_history(history_path, successful_rows)
+
+    history = load_history(history_path)
 
     near_dates = [
         dt.date.fromisoformat(v["date"])
@@ -1062,78 +1176,11 @@ def main():
         },
     }
 
-    print("=== Flight Deal Watcher / 雙軌搜尋（日期游標，動態未來一年） ===")
-    print(f"今天：{today}")
-    print(f"全年：{today} -> {annual_end}")
-    print(f"近期：{today} -> {near_end}")
-    print(f"停留：{min(stays(cfg))}～{max(stays(cfg))} 天")
-    print(f"全年網格（此刻有效組合數）：{total_grid:,} 組")
-    print(
-        "本輪：近期 "
-        f"{sum(near_quota.values())} + 全年 {sum(annual_quota.values())} = {len(batch)} 組"
-    )
-    print(
-        "游標目前位置（可直接對照日期驗證有沒有往前走）：\n"
-        f"  近期軌：{scan_progress['near_cursor_min_date']} ~ {scan_progress['near_cursor_max_date']}\n"
-        f"  全年軌：{scan_progress['annual_cursor_min_date']} ~ {scan_progress['annual_cursor_max_date']}"
-    )
-
-    print("各目的地配額：")
-    for route in routes:
-        print(
-            "  " + route.replace("|", " -> ")
-            + "：近期 " + str(near_quota[route])
-            + " / 全年 " + str(annual_quota[route])
-        )
-
-    successful_rows = []
-
-    delay = float(cfg.get("request_delay_seconds", 0.0))
-
-    for index, task in enumerate(batch, 1):
-
-        print(
-            f"[{index}/{len(batch)}] {task['track']:6s} "
-            f"{task['origin']}->{task['destination']} "
-            f"{task['departure_date']}~{task['return_date']} {task['stay_days']}d"
-        )
-
-        row = search_one(task, cfg)
-
-        state["total_attempts"] = int(state.get("total_attempts", 0)) + 1
-
-        if row:
-            successful_rows.append(row)
-            print(
-                "  OK "
-                f"NT${row['price']:,} / options="
-                f"{len(parse_options(row['flight_options_json']))}"
-            )
-        else:
-            print("  NO VALID RESULT")
-
-        if delay > 0 and index < len(batch):
-            time.sleep(delay)
-
-    # 這一輪真的重新查到資料的組合，之後只有這些 key 有資格觸發通知，
-    # 避免舊資料因為一直沒被重新查過，卻反覆被判定成「新降價」通知。
-    fresh_keys = {
-        deal_identity(
-            row["origin"], row["destination"],
-            row["departure_date"], row["return_date"], row["stay_days"],
-        )
-        for row in successful_rows
-    }
-
-    append_history(history_path, successful_rows)
-
-    history = load_history(history_path)
-
     latest = build_latest(
         cfg, history, today, annual_end, near_end, state,
         total_grid, near_quota, annual_quota,
         len(successful_rows), len(batch),
-        scan_progress,
+        scan_progress, aborted_early, len(executed_batch),
     )
 
     save_json(latest_path, latest)
@@ -1142,8 +1189,9 @@ def main():
     send_ntfy_notification(latest["deals"], cfg, fresh_keys)
 
     print("=== 完成 ===")
-    print(f"本次嘗試：{len(batch)}")
+    print(f"本次計畫：{len(batch)}　實際執行：{len(executed_batch)}")
     print(f"成功取得價格：{len(successful_rows)}")
+    print(f"提前中止：{'是' if aborted_early else '否'}")
     print(f"網站 deals：{len(latest['deals'])}")
 
 

@@ -1508,7 +1508,17 @@ async function load(){
       const annualRange = sp.annual_cursor_min_date===sp.annual_cursor_max_date
         ? safe(sp.annual_cursor_min_date)
         : `${safe(sp.annual_cursor_min_date)} ~ ${safe(sp.annual_cursor_max_date)}`;
-      $("scanProgressBox").textContent=`📡 掃描進度（游標實際位置，不受篩選影響）：近期軌各航線目前掃到 ${nearRange} · 全年軌各航線目前掃到 ${annualRange}`;
+      let progressText=`📡 掃描進度（游標實際位置，不受篩選影響）：近期軌各航線目前掃到 ${nearRange} · 全年軌各航線目前掃到 ${annualRange}`;
+
+      // 新增：如果上一輪有偵測到連續失敗、提前中止，明確告訴你，
+      // 不用再猜測「為什麼某個日期之後突然沒資料」。
+      if(DATA.aborted_early){
+        progressText += `\n⚠️ 上一輪疑似遭遇 Google Flights 暫時限制，已提前中止（實際完成 ${safe(DATA.executed_this_run)} / ${safe(DATA.attempted_this_run)} 組）。這是暫時性的，之後幾輪會自動繼續補上。`;
+      }
+
+      const box=$("scanProgressBox");
+      box.style.whiteSpace="pre-line";
+      box.textContent=progressText;
     }
 
     applyFilters();
