@@ -93,6 +93,19 @@ def route_key(origin: str, destination: str) -> str:
     return f"{origin}|{destination}"
 
 
+def deal_identity(
+    origin: str,
+    destination: str,
+    departure_date: str,
+    return_date: str,
+    stay_days: int,
+) -> tuple[str, str, str, str, int]:
+    """一組航班的唯一識別：出發地/目的地/去程/回程/停留天數。
+    用來判斷『這組航班這一輪是不是真的有重新查過』。
+    """
+    return (origin, destination, departure_date, return_date, int(stay_days))
+
+
 # ============================================================
 # STATE SIGNATURE
 # 只要目的地、天數範圍、艙等…這些搜尋條件變過，舊游標的意義就
@@ -115,13 +128,12 @@ def signature(cfg: dict[str, Any]) -> str:
 
 
 # ============================================================
-# 方案 C：游標直接記錄「實際日期 + 第幾種停留天數」
+# 游標直接記錄「實際日期 + 第幾種停留天數」
 #
-# 跟舊的方案 B（固定 epoch、用整數 index 換算日期）不同，這次
-# 游標本身就是一個真正的日期字串，寫在 state.json 裡打開來就
-# 能直接看懂「現在掃到哪一天」，不需要任何額外換算。
+# state.json 裡每條航線、每個軌道的游標，就是一個真正的日期字串，
+# 打開檔案就能直接看懂「現在掃到哪一天」，不需要任何額外換算。
 #
-# 規則單純到不會有位移補償的 bug：
+# 規則單純：
 #   - 游標日期 < 今天 -> 直接跳到今天（過期日期沒有意義，跳過
 #     不扣分）
 #   - 游標日期 > 搜尋視窗尾端 -> 繞回視窗開頭（今天），因為視窗
@@ -208,7 +220,7 @@ def load_state(
 
 
 # ============================================================
-# FAIR QUOTA（各目的地公平配額，跟游標設計無關，維持原邏輯）
+# FAIR QUOTA（各目的地公平配額）
 # ============================================================
 
 def fair_quotas(
@@ -229,7 +241,7 @@ def fair_quotas(
 
 
 # ============================================================
-# 方案 C：從目前游標日期往後挑任務
+# 從目前游標日期往後挑任務
 # ============================================================
 
 def pick_from_cursor(
@@ -269,8 +281,6 @@ def pick_from_cursor(
 
     chosen: list[dict[str, Any]] = []
 
-    # 安全上限：最多繞視窗一整圈再多一點點緩衝，避免理論上的
-    # 無窮迴圈（例如某條航線的組合全部都被同一輪的另一軌道占用）。
     total_days = max(1, (window_end - today).days + 1)
     max_scan = total_days * n + n
 
@@ -289,12 +299,8 @@ def pick_from_cursor(
         stay = stay_list[stay_idx]
         return_date = date + dt.timedelta(days=stay)
 
-        key = (
-            origin,
-            destination,
-            date.isoformat(),
-            return_date.isoformat(),
-            stay,
+        key = deal_identity(
+            origin, destination, date.isoformat(), return_date.isoformat(), stay
         )
 
         if key not in used:
@@ -310,7 +316,6 @@ def pick_from_cursor(
                 }
             )
 
-        # 指標往下一格前進：先換停留天數，換完一輪再往下一天。
         stay_idx += 1
         if stay_idx >= n:
             stay_idx = 0
@@ -720,12 +725,9 @@ def latest_combos(history, cfg, today, annual_end):
         if departure < today or departure > annual_end or stay not in valid_stays:
             continue
 
-        key = (
-            row["origin"],
-            row["destination"],
-            row["departure_date"],
-            row["return_date"],
-            stay,
+        key = deal_identity(
+            row["origin"], row["destination"],
+            row["departure_date"], row["return_date"], stay,
         )
 
         options = parse_options(row.get("flight_options_json"))
@@ -891,7 +893,19 @@ def save_json(path: Path, data: Any):
 
 
 # ============================================================
-# NTFY 推播（只通知「真的降價 + 真的便宜」的組合，排版跟網頁一致）
+# NTFY 推播
+#
+# 重要修正：只通知「這一輪真的有重新查到資料」的組合。
+#
+# latest.json 裡的 price_drop 是拿『整份歷史紀錄裡，這組航班最新
+# 兩筆資料』去比較算出來的，只要這組航班沒有被新資料覆蓋，這個
+# 判斷結果就會一直維持不變。如果通知邏輯只看 latest.json 裡
+# 「誰是 price_drop」，同一組航班只要一直沒被重新查過，就會一輪
+# 又一輪被重複挑出來通知，即使根本沒有發生任何新事件。
+#
+# 修正做法：main() 執行完會知道「這一輪實際上查了哪些組合」
+# （fresh_keys），通知只從這個集合裡篩選，確保每組航班只有在
+# 「真的重新查到、而且判定為降價」的那一輪才會通知一次。
 # ============================================================
 
 NTFY_SERVER = "https://ntfy.sh"
@@ -935,7 +949,11 @@ def format_drop_line(deal: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def send_ntfy_notification(deals: list[dict[str, Any]], cfg: dict[str, Any]) -> None:
+def send_ntfy_notification(
+    deals: list[dict[str, Any]],
+    cfg: dict[str, Any],
+    fresh_keys: set[tuple[str, str, str, str, int]],
+) -> None:
 
     topic = os.environ.get("NTFY_TOPIC", "").strip()
 
@@ -943,20 +961,23 @@ def send_ntfy_notification(deals: list[dict[str, Any]], cfg: dict[str, Any]) -> 
         print("  未設定 NTFY_TOPIC，略過推播")
         return
 
-    # 只通知「真的划算」的降價：
-    # 1. price_drop：跟自己上一次比，跌幅有達到門檻
-    # 2. cheap_score >= notify_min_cheap_score：跟同航線歷史價格
-    #    池比，這個價格本身也算便宜，不是「跌了但還是貴」。
     min_cheap_score = int(cfg.get("notify_min_cheap_score", 70))
 
     drops = [
         deal
         for deal in deals
-        if deal.get("price_drop") and int(deal.get("cheap_score") or 0) >= min_cheap_score
+        if deal.get("price_drop")
+        and int(deal.get("cheap_score") or 0) >= min_cheap_score
+        and deal_identity(
+            deal["origin"], deal["destination"],
+            deal["departure_date"], deal["return_date"], deal["stay_days"],
+        ) in fresh_keys
     ]
 
     if not drops:
-        print("  本輪沒有『既降價、又真的划算』的組合，不發送推播")
+        print(
+            "  本輪沒有『這輪剛查到、又降價、又真的划算』的組合，不發送推播"
+        )
         return
 
     drops.sort(key=lambda deal: -(deal.get("price_drop_percent") or 0))
@@ -1041,7 +1062,7 @@ def main():
         },
     }
 
-    print("=== Flight Deal Watcher / 雙軌搜尋（方案 C：日期游標，動態未來一年） ===")
+    print("=== Flight Deal Watcher / 雙軌搜尋（日期游標，動態未來一年） ===")
     print(f"今天：{today}")
     print(f"全年：{today} -> {annual_end}")
     print(f"近期：{today} -> {near_end}")
@@ -1094,6 +1115,16 @@ def main():
         if delay > 0 and index < len(batch):
             time.sleep(delay)
 
+    # 這一輪真的重新查到資料的組合，之後只有這些 key 有資格觸發通知，
+    # 避免舊資料因為一直沒被重新查過，卻反覆被判定成「新降價」通知。
+    fresh_keys = {
+        deal_identity(
+            row["origin"], row["destination"],
+            row["departure_date"], row["return_date"], row["stay_days"],
+        )
+        for row in successful_rows
+    }
+
     append_history(history_path, successful_rows)
 
     history = load_history(history_path)
@@ -1108,7 +1139,7 @@ def main():
     save_json(latest_path, latest)
     save_json(state_path, state)
 
-    send_ntfy_notification(latest["deals"], cfg)
+    send_ntfy_notification(latest["deals"], cfg, fresh_keys)
 
     print("=== 完成 ===")
     print(f"本次嘗試：{len(batch)}")
