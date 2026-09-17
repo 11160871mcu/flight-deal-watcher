@@ -4,72 +4,72 @@
   "near_cursor_by_route": {
     "TPE|NRT": {
       "date": "2026-09-29",
-      "stay_index": 4
+      "stay_index": 5
     },
     "TPE|HND": {
       "date": "2026-09-29",
-      "stay_index": 4
+      "stay_index": 5
     },
     "TPE|KIX": {
       "date": "2026-09-29",
-      "stay_index": 4
+      "stay_index": 5
     },
     "TPE|FUK": {
       "date": "2026-09-29",
-      "stay_index": 4
+      "stay_index": 5
     },
     "TPE|CTS": {
       "date": "2026-09-29",
-      "stay_index": 4
+      "stay_index": 5
     },
     "TPE|OKA": {
       "date": "2026-09-29",
-      "stay_index": 4
+      "stay_index": 5
     },
     "TPE|ICN": {
       "date": "2026-09-29",
-      "stay_index": 4
+      "stay_index": 5
     },
     "TPE|PUS": {
       "date": "2026-09-29",
-      "stay_index": 4
+      "stay_index": 5
     }
   },
   "annual_cursor_by_route": {
     "TPE|NRT": {
       "date": "2026-10-14",
-      "stay_index": 1
+      "stay_index": 2
     },
     "TPE|HND": {
       "date": "2026-10-14",
-      "stay_index": 1
+      "stay_index": 2
     },
     "TPE|KIX": {
       "date": "2026-10-14",
-      "stay_index": 1
+      "stay_index": 2
     },
     "TPE|FUK": {
       "date": "2026-10-14",
-      "stay_index": 1
+      "stay_index": 2
     },
     "TPE|CTS": {
       "date": "2026-10-14",
-      "stay_index": 1
+      "stay_index": 2
     },
     "TPE|OKA": {
       "date": "2026-10-14",
-      "stay_index": 1
+      "stay_index": 2
     },
     "TPE|ICN": {
       "date": "2026-10-14",
-      "stay_index": 1
+      "stay_index": 2
     },
     "TPE|PUS": {
       "date": "2026-10-13",
       "stay_index": 10
     }
   },
-  "near_rotation": 0,
+  "near_rotation": 4,
   "annual_rotation": 0,
-  "total_attempts": 3774
+  "total_attempts": 3789
 }
