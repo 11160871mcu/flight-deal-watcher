@@ -1158,6 +1158,18 @@ function getFilters(){
   };
 }
 
+// 篩選規則抽成獨立函式，讓「卡片牆」跟「各出發日期最低票價」清單
+// 可以套用不完全相同的篩選組合（差別在要不要套用 Cheap Score）。
+function passesBaseFilters(deal,f){
+  if(!f.destinations.includes(deal.destination))return false;
+  if(Number(deal.stay_days)<f.stayMin||Number(deal.stay_days)>f.stayMax)return false;
+  if(f.maxPrice&&Number(deal.price)>f.maxPrice)return false;
+  if(f.dateFrom&&deal.departure_date<f.dateFrom)return false;
+  if(f.dateTo&&deal.departure_date>f.dateTo)return false;
+  if(!optionsForDeal(deal,f).length)return false;
+  return true;
+}
+
 function renderScoreBands(c,sMin){
   const b=$("scoreBands");
   if(!b)return;
@@ -1169,9 +1181,31 @@ function renderScoreBands(c,sMin){
     <span>💰 偏貴 ${c.expensive} 組（Score &lt; 40）${hn}</span>`;
 }
 
-function renderCheapestRank(rows){
+// 重要修正：「各出發日期最低票價」清單改成不套用 Cheap Score 篩選。
+//
+// 原因：這份清單原本是拿卡片牆篩選後的結果去建的，若某個日期的最低
+// 價格 Cheap Score 剛好低於預設門檻（40+），該日期就會從清單裡完全
+// 消失，讓人誤以為「系統只掃到某個比較早的日期就沒有前進了」，但其
+// 實系統可能早就查到更後面的日期，只是那些日期的價格被 Cheap Score
+// 篩選擋住、沒有顯示在清單裡而已。
+//
+// 這裡改成：目的地／航空公司／停留天數／日期範圍／最高價格這些篩選
+// 照樣套用（畢竟你不想看的目的地或航空公司理應被排除），但**不**套用
+// Cheap Score 門檻，讓清單能完整反映「系統實際查到哪些日期」。點選
+// 之後 ensureDealVisible() 本來就會自動把 Cheap Score 篩選放寬到
+// 「不限」，所以行為是一致的，只是清單本身不會提前把選項藏起來。
+function buildDateRankRows(){
+  const f=CURRENT_FILTERS;
+  if(!f||!DATA)return[];
+  return(DATA.deals||[]).filter(deal=>passesBaseFilters(deal,f));
+}
+
+function renderCheapestRank(){
   const box=$("cheapestRankBox");
   if(!box)return;
+
+  const rows=buildDateRankRows();
+
   if(!rows.length){box.style.display="none";RANK_DATE_MAP={};return;}
 
   box.style.display="block";
@@ -1198,16 +1232,17 @@ function renderCheapestRank(rows){
   const optionsHtml=ranked.map(deal=>{
     const d=new Date(deal.departure_date);
     const md=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")} (${days[d.getDay()]})`;
-    return`<option value="${deal.departure_date}">${md} ｜ ${airportCn(deal.destination)} ｜ ${money(deal.price)}</option>`;
+    const lowScore=Number(deal.cheap_score||0)<40?" ⚠低分":"";
+    return`<option value="${deal.departure_date}">${md} ｜ ${airportCn(deal.destination)} ｜ ${money(deal.price)}${lowScore}</option>`;
   }).join("");
 
   box.innerHTML=`
     <div style="font-size:13px; font-weight:900; color:var(--blue); margin-bottom:10px;">
       📅 各出發日期最低票價
-      <span style="font-weight:400; color:var(--muted); font-size:11px;">（選擇後會自動捲動到對應卡片，看完整資訊）</span>
+      <span style="font-weight:400; color:var(--muted); font-size:11px;">（不受 Cheap Score 篩選影響，完整反映系統已查到的日期範圍；選擇後會自動放寬篩選並捲動到對應卡片）</span>
     </div>
     <select id="rankDateSelect" style="width:100%; height:46px; border:1px solid var(--line); border-radius:8px; background:var(--input); color:var(--gold); padding:0 12px; font-size:15px; font-weight:bold; cursor:pointer; outline:none; appearance:auto;">
-      <option value="" disabled selected>▾ 點開下拉選單：查看每日最低價格</option>
+      <option value="" disabled selected>▾ 點開下拉選單：查看每日最低價格（標「⚠低分」代表 Cheap Score 低於 40，卡片牆預設會隱藏）</option>
       ${optionsHtml}
     </select>
   `;
@@ -1278,15 +1313,7 @@ function applyFilters(){
   const f=getFilters();
   let r=[...(DATA.deals||[])];
 
-  r=r.filter(deal=>{
-    if(!f.destinations.includes(deal.destination))return false;
-    if(Number(deal.stay_days)<f.stayMin||Number(deal.stay_days)>f.stayMax)return false;
-    if(f.maxPrice&&Number(deal.price)>f.maxPrice)return false;
-    if(f.dateFrom&&deal.departure_date<f.dateFrom)return false;
-    if(f.dateTo&&deal.departure_date>f.dateTo)return false;
-    if(!optionsForDeal(deal,f).length)return false;
-    return true;
-  });
+  r=r.filter(deal=>passesBaseFilters(deal,f));
 
   const bc={hot:0,good:0,normal:0,expensive:0};
   r.forEach(deal=>{
@@ -1299,7 +1326,7 @@ function applyFilters(){
 
   CURRENT_RESULTS=r;
   CURRENT_FILTERS=f;
-  renderCheapestRank(r);
+  renderCheapestRank();
   renderCurrent();
 }
 
@@ -1481,7 +1508,7 @@ async function load(){
       const annualRange = sp.annual_cursor_min_date===sp.annual_cursor_max_date
         ? safe(sp.annual_cursor_min_date)
         : `${safe(sp.annual_cursor_min_date)} ~ ${safe(sp.annual_cursor_max_date)}`;
-      $("scanProgressBox").textContent=`📡 掃描進度（直接對照日期，確認真的有持續往前走）：近期軌各航線目前掃到 ${nearRange} · 全年軌各航線目前掃到 ${annualRange}`;
+      $("scanProgressBox").textContent=`📡 掃描進度（游標實際位置，不受篩選影響）：近期軌各航線目前掃到 ${nearRange} · 全年軌各航線目前掃到 ${annualRange}`;
     }
 
     applyFilters();
