@@ -3,73 +3,73 @@
   "grid_signature": "2a172851f8b7277c220a",
   "near_cursor_by_route": {
     "TPE|NRT": {
-      "date": "2026-09-25",
-      "stay_index": 10
+      "date": "2026-09-27",
+      "stay_index": 6
     },
     "TPE|HND": {
-      "date": "2026-09-25",
-      "stay_index": 10
+      "date": "2026-09-27",
+      "stay_index": 6
     },
     "TPE|KIX": {
-      "date": "2026-09-25",
-      "stay_index": 10
+      "date": "2026-09-27",
+      "stay_index": 6
     },
     "TPE|FUK": {
-      "date": "2026-09-25",
-      "stay_index": 10
+      "date": "2026-09-27",
+      "stay_index": 6
     },
     "TPE|CTS": {
-      "date": "2026-09-25",
-      "stay_index": 10
+      "date": "2026-09-27",
+      "stay_index": 6
     },
     "TPE|OKA": {
-      "date": "2026-09-25",
-      "stay_index": 10
+      "date": "2026-09-27",
+      "stay_index": 6
     },
     "TPE|ICN": {
-      "date": "2026-09-25",
-      "stay_index": 10
+      "date": "2026-09-27",
+      "stay_index": 6
     },
     "TPE|PUS": {
-      "date": "2026-09-25",
-      "stay_index": 10
+      "date": "2026-09-27",
+      "stay_index": 6
     }
   },
   "annual_cursor_by_route": {
     "TPE|NRT": {
-      "date": "2026-10-07",
-      "stay_index": 4
+      "date": "2026-10-10",
+      "stay_index": 7
     },
     "TPE|HND": {
-      "date": "2026-10-07",
-      "stay_index": 4
+      "date": "2026-10-10",
+      "stay_index": 7
     },
     "TPE|KIX": {
-      "date": "2026-10-07",
-      "stay_index": 4
+      "date": "2026-10-10",
+      "stay_index": 7
     },
     "TPE|FUK": {
-      "date": "2026-10-07",
-      "stay_index": 4
+      "date": "2026-10-10",
+      "stay_index": 7
     },
     "TPE|CTS": {
-      "date": "2026-10-07",
-      "stay_index": 4
+      "date": "2026-10-10",
+      "stay_index": 7
     },
     "TPE|OKA": {
-      "date": "2026-10-07",
-      "stay_index": 4
+      "date": "2026-10-10",
+      "stay_index": 7
     },
     "TPE|ICN": {
-      "date": "2026-10-07",
-      "stay_index": 4
+      "date": "2026-10-10",
+      "stay_index": 7
     },
     "TPE|PUS": {
-      "date": "2026-10-07",
-      "stay_index": 4
+      "date": "2026-10-10",
+      "stay_index": 7
     }
   },
   "near_rotation": 0,
   "annual_rotation": 0,
-  "total_attempts": 2880
+  "total_attempts": 3312
 }
