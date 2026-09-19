@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-19T11:02:29+00:00",
+  "generated_at": "2026-09-19T15:54:29+00:00",
   "search_start_date": "2026-09-19",
   "search_end_date": "2027-09-19",
   "near_term_end_date": "2026-12-18",
@@ -26,17 +26,17 @@
   "aborted_early": true,
   "near_checks_planned": 108,
   "annual_checks_planned": 216,
-  "total_checks_so_far": 3909,
+  "total_checks_so_far": 3924,
   "total_combos_in_grid": 32208,
   "route_near_quota": {
-    "TPE|NRT": 14,
-    "TPE|HND": 14,
-    "TPE|KIX": 14,
-    "TPE|FUK": 14,
-    "TPE|CTS": 13,
-    "TPE|OKA": 13,
-    "TPE|ICN": 13,
-    "TPE|PUS": 13
+    "TPE|NRT": 13,
+    "TPE|HND": 13,
+    "TPE|KIX": 13,
+    "TPE|FUK": 13,
+    "TPE|CTS": 14,
+    "TPE|OKA": 14,
+    "TPE|ICN": 14,
+    "TPE|PUS": 14
   },
   "route_annual_quota": {
     "TPE|NRT": 27,
@@ -52,7 +52,7 @@
     "near_cursor_min_date": "2026-09-30",
     "near_cursor_max_date": "2026-09-30",
     "annual_cursor_min_date": "2026-10-13",
-    "annual_cursor_max_date": "2026-10-14",
+    "annual_cursor_max_date": "2026-10-15",
     "near_cursor_by_route": {
       "TPE|NRT": "2026-09-30",
       "TPE|HND": "2026-09-30",
@@ -64,13 +64,13 @@
       "TPE|PUS": "2026-09-30"
     },
     "annual_cursor_by_route": {
-      "TPE|NRT": "2026-10-14",
-      "TPE|HND": "2026-10-14",
-      "TPE|KIX": "2026-10-14",
-      "TPE|FUK": "2026-10-14",
-      "TPE|CTS": "2026-10-14",
-      "TPE|OKA": "2026-10-14",
-      "TPE|ICN": "2026-10-14",
+      "TPE|NRT": "2026-10-15",
+      "TPE|HND": "2026-10-15",
+      "TPE|KIX": "2026-10-15",
+      "TPE|FUK": "2026-10-15",
+      "TPE|CTS": "2026-10-15",
+      "TPE|OKA": "2026-10-15",
+      "TPE|ICN": "2026-10-15",
       "TPE|PUS": "2026-10-13"
     }
   },
