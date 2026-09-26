@@ -3,73 +3,73 @@
   "grid_signature": "2a172851f8b7277c220a",
   "near_cursor_by_route": {
     "TPE|NRT": {
-      "date": "2026-10-02",
-      "stay_index": 10
+      "date": "2026-10-03",
+      "stay_index": 0
     },
     "TPE|HND": {
-      "date": "2026-10-02",
-      "stay_index": 10
+      "date": "2026-10-03",
+      "stay_index": 0
     },
     "TPE|KIX": {
-      "date": "2026-10-02",
-      "stay_index": 10
+      "date": "2026-10-03",
+      "stay_index": 0
     },
     "TPE|FUK": {
-      "date": "2026-10-02",
-      "stay_index": 10
+      "date": "2026-10-03",
+      "stay_index": 0
     },
     "TPE|CTS": {
-      "date": "2026-10-02",
-      "stay_index": 10
+      "date": "2026-10-03",
+      "stay_index": 0
     },
     "TPE|OKA": {
-      "date": "2026-10-02",
-      "stay_index": 10
+      "date": "2026-10-03",
+      "stay_index": 0
     },
     "TPE|ICN": {
-      "date": "2026-10-02",
-      "stay_index": 10
+      "date": "2026-10-03",
+      "stay_index": 0
     },
     "TPE|PUS": {
-      "date": "2026-10-02",
-      "stay_index": 10
+      "date": "2026-10-03",
+      "stay_index": 0
     }
   },
   "annual_cursor_by_route": {
     "TPE|NRT": {
       "date": "2026-10-17",
-      "stay_index": 7
+      "stay_index": 8
     },
     "TPE|HND": {
       "date": "2026-10-17",
-      "stay_index": 7
+      "stay_index": 8
     },
     "TPE|KIX": {
       "date": "2026-10-17",
-      "stay_index": 7
+      "stay_index": 8
     },
     "TPE|FUK": {
       "date": "2026-10-17",
-      "stay_index": 7
+      "stay_index": 8
     },
     "TPE|CTS": {
       "date": "2026-10-17",
-      "stay_index": 7
+      "stay_index": 8
     },
     "TPE|OKA": {
       "date": "2026-10-17",
-      "stay_index": 7
+      "stay_index": 8
     },
     "TPE|ICN": {
       "date": "2026-10-17",
-      "stay_index": 7
+      "stay_index": 8
     },
     "TPE|PUS": {
       "date": "2026-10-13",
       "stay_index": 10
     }
   },
-  "near_rotation": 4,
+  "near_rotation": 0,
   "annual_rotation": 0,
-  "total_attempts": 4359
+  "total_attempts": 4374
 }
