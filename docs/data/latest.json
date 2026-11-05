@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-11-05T06:50:22+00:00",
-  "search_start_date": "2026-11-05",
-  "search_end_date": "2027-11-05",
-  "near_term_end_date": "2027-02-03",
+  "generated_at": "2026-11-05T17:25:55+00:00",
+  "search_start_date": "2026-11-06",
+  "search_end_date": "2027-11-06",
+  "near_term_end_date": "2027-02-04",
   "origins": [
     "TPE"
   ],
@@ -26,17 +26,17 @@
   "aborted_early": true,
   "near_checks_planned": 108,
   "annual_checks_planned": 216,
-  "total_checks_so_far": 6579,
+  "total_checks_so_far": 6594,
   "total_combos_in_grid": 32208,
   "route_near_quota": {
-    "TPE|NRT": 14,
-    "TPE|HND": 14,
-    "TPE|KIX": 14,
-    "TPE|FUK": 14,
-    "TPE|CTS": 13,
-    "TPE|OKA": 13,
-    "TPE|ICN": 13,
-    "TPE|PUS": 13
+    "TPE|NRT": 13,
+    "TPE|HND": 13,
+    "TPE|KIX": 13,
+    "TPE|FUK": 13,
+    "TPE|CTS": 14,
+    "TPE|OKA": 14,
+    "TPE|ICN": 14,
+    "TPE|PUS": 14
   },
   "route_annual_quota": {
     "TPE|NRT": 27,
@@ -49,21 +49,11 @@
     "TPE|PUS": 27
   },
   "scan_progress": {
-    "near_cursor_min_date": "2026-11-05",
-    "near_cursor_max_date": "2026-11-05",
+    "near_cursor_min_date": "2026-11-06",
+    "near_cursor_max_date": "2026-11-06",
     "annual_cursor_min_date": "2026-10-13",
-    "annual_cursor_max_date": "2026-11-06",
+    "annual_cursor_max_date": "2026-11-07",
     "near_cursor_by_route": {
-      "TPE|NRT": "2026-11-05",
-      "TPE|HND": "2026-11-05",
-      "TPE|KIX": "2026-11-05",
-      "TPE|FUK": "2026-11-05",
-      "TPE|CTS": "2026-11-05",
-      "TPE|OKA": "2026-11-05",
-      "TPE|ICN": "2026-11-05",
-      "TPE|PUS": "2026-11-05"
-    },
-    "annual_cursor_by_route": {
       "TPE|NRT": "2026-11-06",
       "TPE|HND": "2026-11-06",
       "TPE|KIX": "2026-11-06",
@@ -71,6 +61,16 @@
       "TPE|CTS": "2026-11-06",
       "TPE|OKA": "2026-11-06",
       "TPE|ICN": "2026-11-06",
+      "TPE|PUS": "2026-11-06"
+    },
+    "annual_cursor_by_route": {
+      "TPE|NRT": "2026-11-07",
+      "TPE|HND": "2026-11-07",
+      "TPE|KIX": "2026-11-07",
+      "TPE|FUK": "2026-11-07",
+      "TPE|CTS": "2026-11-07",
+      "TPE|OKA": "2026-11-07",
+      "TPE|ICN": "2026-11-07",
       "TPE|PUS": "2026-10-13"
     }
   },
